@@ -1,0 +1,65 @@
+import XCTest
+@testable import Lumo
+
+final class NavigationPolicyTests: XCTestCase {
+
+    // MARK: – Proton domain handling
+
+    func testProtonMainDomainAllowed() {
+        let url = URL(string: "https://lumo.proton.me/")!
+        XCTAssertEqual(NavigationPolicy.decide(for: url, blockTrackers: true), .allow)
+    }
+
+    func testProtonSubdomainAllowed() {
+        let url = URL(string: "https://account.proton.me/login")!
+        XCTAssertEqual(NavigationPolicy.decide(for: url, blockTrackers: true), .allow)
+    }
+
+    func testProtonMeRootAllowed() {
+        let url = URL(string: "https://proton.me/")!
+        XCTAssertEqual(NavigationPolicy.decide(for: url, blockTrackers: true), .allow)
+    }
+
+    // MARK: – External links
+
+    func testExternalHTTPLinkOpenedExternally() {
+        let url = URL(string: "https://example.com/")!
+        XCTAssertEqual(NavigationPolicy.decide(for: url, blockTrackers: true), .openExternal)
+    }
+
+    func testExternalHTTPLinkOpenedExternally2() {
+        let url = URL(string: "http://example.org/page")!
+        XCTAssertEqual(NavigationPolicy.decide(for: url, blockTrackers: true), .openExternal)
+    }
+
+    // MARK: – Tracker blocking
+
+    func testTrackerDomainBlocked() {
+        let url = URL(string: "https://google-analytics.com/collect")!
+        XCTAssertEqual(NavigationPolicy.decide(for: url, blockTrackers: true), .cancel)
+    }
+
+    func testTrackerSubdomainBlocked() {
+        let url = URL(string: "https://www.doubleclick.net/ad")!
+        XCTAssertEqual(NavigationPolicy.decide(for: url, blockTrackers: true), .cancel)
+    }
+
+    func testTrackerBlockingDisabledAllowsTracker() {
+        let url = URL(string: "https://google-analytics.com/collect")!
+        XCTAssertEqual(NavigationPolicy.decide(for: url, blockTrackers: false), .openExternal)
+    }
+
+    // MARK: – Non-HTTP schemes
+
+    func testNonHTTPSchemeAllowed() {
+        let url = URL(string: "mailto:someone@example.com")!
+        XCTAssertEqual(NavigationPolicy.decide(for: url, blockTrackers: true), .allow)
+    }
+
+    // MARK: – Edge cases
+
+    func testURLWithNoHostAllowed() {
+        let url = URL(string: "about:blank")!
+        XCTAssertEqual(NavigationPolicy.decide(for: url, blockTrackers: true), .allow)
+    }
+}

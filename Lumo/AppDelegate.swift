@@ -95,8 +95,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc func clearCookies(_ sender: Any?) {
         guard let vc = activeWebViewController() else { return }
-        vc.clearWebsiteData { [weak self] in
-            self?.openChatWindow()
+        vc.clearWebsiteData {
+            vc.reload()
         }
     }
 

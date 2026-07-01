@@ -365,8 +365,11 @@ final class WebViewController: NSViewController {
     @objc private func findTextChanged(_ sender: NSSearchField) {
         let query = sender.stringValue
         guard !query.isEmpty else { return }
-        // Use WebKit's built-in find.
-        webView.evaluateJavaScript("window.find('\(query.replacingOccurrences(of: "'", with: "\\'"))')", completionHandler: nil)
+        // Use WebKit's built-in find. Pass the query as a JSON-encoded
+        // string to safely handle quotes, backslashes, and special characters.
+        guard let encodedData = try? JSONEncoder().encode(query),
+              let encodedQuery = String(data: encodedData, encoding: .utf8) else { return }
+        webView.evaluateJavaScript("window.find(\(encodedQuery))", completionHandler: nil)
     }
 
     func toggleSidebar() {
@@ -427,31 +430,16 @@ extension WebViewController: WKNavigationDelegate {
             return
         }
 
-        // Block known tracking domains.
-        if settings.blockTrackers, let host = url.host {
-            let trackerDomains = ["google-analytics.com", "doubleclick.net", "facebook.net",
-                                  "facebook.com", "hotjar.com", "segment.io", "amplitude.com",
-                                  "mixpanel.com", "fullstory.com", "snowplowanalytics.com"]
-            if trackerDomains.contains(where: { host.contains($0) }) {
-                decisionHandler(.cancel)
-                return
-            }
-        }
-
-        // Allow same-origin navigation to lumo.proton.me.
-        if let host = url.host, host.hasSuffix("proton.me") {
+        let action = NavigationPolicy.decide(for: url, blockTrackers: settings.blockTrackers)
+        switch action {
+        case .allow:
             decisionHandler(.allow)
-            return
-        }
-
-        // External links open in default browser.
-        if url.scheme == "http" || url.scheme == "https" {
+        case .openExternal:
             NSWorkspace.shared.open(url)
             decisionHandler(.cancel)
-            return
+        case .cancel:
+            decisionHandler(.cancel)
         }
-
-        decisionHandler(.allow)
     }
 
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {

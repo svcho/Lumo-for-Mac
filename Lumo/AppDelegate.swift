@@ -128,3 +128,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         windows.removeAll { $0 === controller }
     }
 }
+
+// MARK: – NSUserInterfaceItemValidation
+
+extension AppDelegate {
+    @objc func validateUserInterfaceItem(_ item: NSValidatedUserInterfaceItem) -> Bool {
+        guard let vc = activeWebViewController() else { return false }
+
+        switch item.action {
+        case #selector(goBack(_:)):
+            return vc.webView.canGoBack
+        case #selector(goForward(_:)):
+            return vc.webView.canGoForward
+        default:
+            return true
+        }
+    }
+}

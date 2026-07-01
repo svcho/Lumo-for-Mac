@@ -80,6 +80,21 @@ final class WebViewController: NSViewController {
         if !settings.enableSpellChecking {
             webView.configuration.preferences.setValue(false, forKey: "spellCheckingEnabled")
         }
+
+        // Observe system appearance changes for theme syncing.
+        NSApp?.observe(\.effectiveAppearance, options: [.new]) { [weak self] _, _ in
+            DispatchQueue.main.async {
+                self?.systemAppearanceChanged()
+            }
+        }
+
+        // Listen for page-ready notifications from the JS bridge.
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(pageReady(_:)),
+            name: LumoMessageHandler.pageReadyNotification,
+            object: nil
+        )
     }
 
     // MARK: – WebView Configuration
@@ -269,6 +284,27 @@ final class WebViewController: NSViewController {
         }
     }
 
+    // MARK: – Theme Sync
+
+    @objc private func systemAppearanceChanged() {
+        let isDark = view.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        let theme = isDark ? "dark" : "light"
+
+        webView.evaluateJavaScript("""
+            (function() {
+                document.documentElement.setAttribute('data-lumo-theme', '\(theme)');
+                var media = window.matchMedia('(prefers-color-scheme: \(theme))');
+                if (media.dispatchEvent) {
+                    media.dispatchEvent(new MediaQueryListEvent('change', { media: media.media, matches: \(isDark) }));
+                }
+            })();
+        """) { _, _ in }
+    }
+
+    @objc private func pageReady(_ notification: Notification) {
+        systemAppearanceChanged()
+    }
+
     // MARK: – Zoom
 
     func applyZoom() {
@@ -445,6 +481,7 @@ extension WebViewController: WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         applyZoom()
+        systemAppearanceChanged()
         if let title = webView.title, !title.isEmpty {
             view.window?.title = title
         } else {
@@ -471,6 +508,12 @@ extension WebViewController: WKNavigationDelegate {
                  completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
         // Use default handling for TLS certs.
         completionHandler(.performDefaultHandling, nil)
+    }
+
+    // MARK: – Downloads
+
+    func webView(_ webView: WKWebView, didStartDownload download: WKDownload) {
+        download.delegate = self
     }
 
     // MARK: – Offline Page
@@ -528,10 +571,41 @@ extension WebViewController: WKUIDelegate {
     }
 }
 
+// MARK: – WKDownloadDelegate
+
+extension WebViewController: WKDownloadDelegate {
+
+    func download(_ download: WKDownload, decideDestinationUsing response: URLResponse,
+                  suggestedFilename: String,
+                  completionHandler: @escaping @MainActor @Sendable (URL?) -> Void) {
+        let panel = NSSavePanel()
+        panel.canCreateDirectories = true
+        panel.nameFieldStringValue = suggestedFilename
+        panel.directoryURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
+
+        if panel.runModal() == .OK, let url = panel.url {
+            completionHandler(url)
+        } else {
+            completionHandler(nil)
+        }
+    }
+
+    func downloadDidFinish(_ download: WKDownload) {
+        // Could show a notification or badge in the future.
+    }
+
+    func download(_ download: WKDownload, didFailWithError error: Error) {
+        // Could show an alert in the future.
+        print("Download failed: \(error.localizedDescription)")
+    }
+}
+
 // MARK: – Message Handler
 
 final class LumoMessageHandler: NSObject, WKScriptMessageHandler {
     static let shared = LumoMessageHandler()
+
+    static let pageReadyNotification = Notification.Name("LumoPageReady")
 
     func userContentController(_ userContentController: WKUserContentController,
                                didReceive message: WKScriptMessage) {
@@ -540,8 +614,11 @@ final class LumoMessageHandler: NSObject, WKScriptMessageHandler {
 
         switch type {
         case "ready":
-            // Page DOM is ready — could trigger further injections.
-            break
+            NotificationCenter.default.post(
+                name: Self.pageReadyNotification,
+                object: nil,
+                userInfo: body
+            )
         default:
             break
         }

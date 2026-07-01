@@ -14,14 +14,12 @@ final class WebViewController: NSViewController {
     // MARK: – Properties
 
     let settings: AppSettings
+    private let urlString: String?
     private(set) var webView: WKWebView!
     private var findBar: NSSearchField?
     private var findBarHeightConstraint: NSLayoutConstraint?
-    private var progressObserver: NSKeyValueObservation?
     private var titleObserver: NSKeyValueObservation?
     private var urlObserver: NSKeyValueObservation?
-    private var canGoBackObserver: NSKeyValueObservation?
-    private var canGoForwardObserver: NSKeyValueObservation?
 
     private static let lumoURL = URL(string: "https://lumo.proton.me/")!
 
@@ -29,6 +27,7 @@ final class WebViewController: NSViewController {
 
     init(settings: AppSettings, urlString: String? = nil) {
         self.settings = settings
+        self.urlString = urlString
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -70,12 +69,32 @@ final class WebViewController: NSViewController {
 
         self.view = container
 
-        // Navigate.
-        let targetURL = URL(string: "https://lumo.proton.me/") ?? Self.lumoURL
+        // Navigate — use provided URL or default to Lumo.
+        let targetURL = urlString.flatMap { URL(string: $0) } ?? Self.lumoURL
         webView.load(URLRequest(url: targetURL, cachePolicy: .useProtocolCachePolicy))
 
         // Observe properties for UI updates.
         observeWebView()
+
+        // Spell checking — toggle via WebKit preference.
+        if !settings.enableSpellChecking {
+            webView.configuration.preferences.setValue(false, forKey: "spellCheckingEnabled")
+        }
+
+        // Observe system appearance changes for theme syncing.
+        NSApp?.observe(\.effectiveAppearance, options: [.new]) { [weak self] _, _ in
+            DispatchQueue.main.async {
+                self?.systemAppearanceChanged()
+            }
+        }
+
+        // Listen for page-ready notifications from the JS bridge.
+        NotificationCenter.default.addObserver(
+            self,
+            selector: #selector(pageReady(_:)),
+            name: LumoMessageHandler.pageReadyNotification,
+            object: nil
+        )
     }
 
     // MARK: – WebView Configuration
@@ -108,10 +127,10 @@ final class WebViewController: NSViewController {
         injectNativeEnhancements(into: ucc)
         config.userContentController = ucc
 
-        // Custom user agent for best compatibility.
+        // Custom user agent — appends "Lumo/1.0" to the WebKit UA string
+        // for site compatibility. When disabled, uses the default WebKit UA.
         if settings.customUserAgent {
             config.applicationNameForUserAgent = "Lumo/1.0"
-            // We'll set a fine-tuned UA on the webView instance after creation.
         }
 
         // Allow local content & media.
@@ -263,14 +282,27 @@ final class WebViewController: NSViewController {
                 self?.applyZoom()
             }
         }
+    }
 
-        canGoBackObserver = webView.observe(\.canGoBack, options: [.new]) { _, _ in
-            // Could update toolbar item enabled state here.
-        }
+    // MARK: – Theme Sync
 
-        canGoForwardObserver = webView.observe(\.canGoForward, options: [.new]) { _, _ in
-            // Could update toolbar item enabled state here.
-        }
+    @objc private func systemAppearanceChanged() {
+        let isDark = view.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        let theme = isDark ? "dark" : "light"
+
+        webView.evaluateJavaScript("""
+            (function() {
+                document.documentElement.setAttribute('data-lumo-theme', '\(theme)');
+                var media = window.matchMedia('(prefers-color-scheme: \(theme))');
+                if (media.dispatchEvent) {
+                    media.dispatchEvent(new MediaQueryListEvent('change', { media: media.media, matches: \(isDark) }));
+                }
+            })();
+        """) { _, _ in }
+    }
+
+    @objc private func pageReady(_ notification: Notification) {
+        systemAppearanceChanged()
     }
 
     // MARK: – Zoom
@@ -365,8 +397,11 @@ final class WebViewController: NSViewController {
     @objc private func findTextChanged(_ sender: NSSearchField) {
         let query = sender.stringValue
         guard !query.isEmpty else { return }
-        // Use WebKit's built-in find.
-        webView.evaluateJavaScript("window.find('\(query.replacingOccurrences(of: "'", with: "\\'"))')", completionHandler: nil)
+        // Use WebKit's built-in find. Pass the query as a JSON-encoded
+        // string to safely handle quotes, backslashes, and special characters.
+        guard let encodedData = try? JSONEncoder().encode(query),
+              let encodedQuery = String(data: encodedData, encoding: .utf8) else { return }
+        webView.evaluateJavaScript("window.find(\(encodedQuery))", completionHandler: nil)
     }
 
     func toggleSidebar() {
@@ -381,7 +416,7 @@ final class WebViewController: NSViewController {
         webView.evaluateJavaScript("window.LumoNative && window.LumoNative.newChat()") { result, _ in
             if let success = result as? Bool, !success {
                 // Fallback: reload to root URL.
-                self.webView.load(URLRequest(url: URL(string: "https://lumo.proton.me/")!))
+                self.webView.load(URLRequest(url: Self.lumoURL))
             }
         }
     }
@@ -427,31 +462,16 @@ extension WebViewController: WKNavigationDelegate {
             return
         }
 
-        // Block known tracking domains.
-        if settings.blockTrackers, let host = url.host {
-            let trackerDomains = ["google-analytics.com", "doubleclick.net", "facebook.net",
-                                  "facebook.com", "hotjar.com", "segment.io", "amplitude.com",
-                                  "mixpanel.com", "fullstory.com", "snowplowanalytics.com"]
-            if trackerDomains.contains(where: { host.contains($0) }) {
-                decisionHandler(.cancel)
-                return
-            }
-        }
-
-        // Allow same-origin navigation to lumo.proton.me.
-        if let host = url.host, host.hasSuffix("proton.me") {
+        let action = NavigationPolicy.decide(for: url, blockTrackers: settings.blockTrackers)
+        switch action {
+        case .allow:
             decisionHandler(.allow)
-            return
-        }
-
-        // External links open in default browser.
-        if url.scheme == "http" || url.scheme == "https" {
+        case .openExternal:
             NSWorkspace.shared.open(url)
             decisionHandler(.cancel)
-            return
+        case .cancel:
+            decisionHandler(.cancel)
         }
-
-        decisionHandler(.allow)
     }
 
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
@@ -461,6 +481,7 @@ extension WebViewController: WKNavigationDelegate {
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         applyZoom()
+        systemAppearanceChanged()
         if let title = webView.title, !title.isEmpty {
             view.window?.title = title
         } else {
@@ -489,6 +510,12 @@ extension WebViewController: WKNavigationDelegate {
         completionHandler(.performDefaultHandling, nil)
     }
 
+    // MARK: – Downloads
+
+    func webView(_ webView: WKWebView, didStartDownload download: WKDownload) {
+        download.delegate = self
+    }
+
     // MARK: – Offline Page
 
     private func showOfflinePage() {
@@ -507,7 +534,7 @@ extension WebViewController: WKNavigationDelegate {
         <body><div class="card">
             <h1>🔌</h1>
             <p>You appear to be offline. Check your internet connection and try again.</p>
-            <button onclick="location.href='https://lumo.proton.me/'">Retry</button>
+            <button onclick="location.href='\(Self.lumoURL.absoluteString)'">Retry</button>
         </div></body>
         </html>
         """
@@ -544,10 +571,41 @@ extension WebViewController: WKUIDelegate {
     }
 }
 
+// MARK: – WKDownloadDelegate
+
+extension WebViewController: WKDownloadDelegate {
+
+    func download(_ download: WKDownload, decideDestinationUsing response: URLResponse,
+                  suggestedFilename: String,
+                  completionHandler: @escaping @MainActor @Sendable (URL?) -> Void) {
+        let panel = NSSavePanel()
+        panel.canCreateDirectories = true
+        panel.nameFieldStringValue = suggestedFilename
+        panel.directoryURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
+
+        if panel.runModal() == .OK, let url = panel.url {
+            completionHandler(url)
+        } else {
+            completionHandler(nil)
+        }
+    }
+
+    func downloadDidFinish(_ download: WKDownload) {
+        // Could show a notification or badge in the future.
+    }
+
+    func download(_ download: WKDownload, didFailWithError error: Error) {
+        // Could show an alert in the future.
+        print("Download failed: \(error.localizedDescription)")
+    }
+}
+
 // MARK: – Message Handler
 
 final class LumoMessageHandler: NSObject, WKScriptMessageHandler {
     static let shared = LumoMessageHandler()
+
+    static let pageReadyNotification = Notification.Name("LumoPageReady")
 
     func userContentController(_ userContentController: WKUserContentController,
                                didReceive message: WKScriptMessage) {
@@ -556,8 +614,11 @@ final class LumoMessageHandler: NSObject, WKScriptMessageHandler {
 
         switch type {
         case "ready":
-            // Page DOM is ready — could trigger further injections.
-            break
+            NotificationCenter.default.post(
+                name: Self.pageReadyNotification,
+                object: nil,
+                userInfo: body
+            )
         default:
             break
         }

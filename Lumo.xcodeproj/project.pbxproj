@@ -15,6 +15,12 @@
 		AA00000E /* PBXBuildFile */ = {isa = PBXBuildFile; fileRef = AA00000F /* Assets.xcassets */;};
 		AA000010 /* PBXBuildFile */ = {isa = PBXBuildFile; fileRef = AA000011 /* Info.plist */;};
 		AA000012 /* PBXBuildFile */ = {isa = PBXBuildFile; fileRef = AA000013 /* Lumo.entitlements */;};
+		AA000014 /* PBXBuildFile */ = {isa = PBXBuildFile; fileRef = AA000015 /* NavigationPolicy.swift */;};
+		AA000023 /* PBXBuildFile */ = {isa = PBXBuildFile; fileRef = AA000021 /* NavigationPolicyTests.swift */;};
+
+		AA000020 /* LumoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LumoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		AA000021 /* NavigationPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationPolicyTests.swift; sourceTree = "<group>"; };
+		AA000022 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 
 		AA000001 /* LumoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LumoApp.swift; sourceTree = "<group>"; };
 		AA000003 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
@@ -26,13 +32,16 @@
 		AA00000F /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		AA000011 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AA000013 /* Lumo.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Lumo.entitlements; sourceTree = "<group>"; };
+		AA000015 /* NavigationPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationPolicy.swift; sourceTree = "<group>"; };
 
 		AA100000 /* Lumo */ = {isa = PBXGroup; children = (
 			AA100001 /* Lumo */,
+			AA000024 /* LumoTests */,
 			AA100002 /* Products */,
 		); sourceTree = "<group>"; };
 		AA100002 /* Products */ = {isa = PBXGroup; children = (
 			AA200000 /* Lumo.app */,
+			AA000020 /* LumoTests.xctest */,
 		); name = Products; sourceTree = "<group>"; };
 		AA100001 /* Lumo */ = {isa = PBXGroup; children = (
 			AA000001 /* LumoApp.swift */,
@@ -42,10 +51,16 @@
 			AA000009 /* MenuBuilder.swift */,
 			AA00000B /* AppSettings.swift */,
 			AA00000D /* SettingsView.swift */,
+			AA000015 /* NavigationPolicy.swift */,
 			AA00000F /* Assets.xcassets */,
 			AA000011 /* Info.plist */,
 			AA000013 /* Lumo.entitlements */,
 		); path = Lumo; sourceTree = "<group>"; };
+
+		AA000024 /* LumoTests */ = {isa = PBXGroup; children = (
+			AA000021 /* NavigationPolicyTests.swift */,
+			AA000022 /* Info.plist */,
+		); path = LumoTests; sourceTree = "<group>"; };
 
 		AA200000 /* Lumo.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Lumo.app; sourceTree = BUILT_PRODUCTS_DIR; };
 
@@ -60,6 +75,7 @@
 				AA000008 /* MenuBuilder.swift in Sources */,
 				AA00000A /* AppSettings.swift in Sources */,
 				AA00000C /* SettingsView.swift in Sources */,
+				AA000014 /* NavigationPolicy.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -74,6 +90,23 @@
 		};
 
 		AA500000 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+
+		AA000025 /* Sources for LumoTests */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				AA000023 /* NavigationPolicyTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+
+		AA000027 /* Frameworks for LumoTests */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -99,6 +132,29 @@
 			productType = "com.apple.product-type.application";
 		};
 
+		AA000028 /* LumoTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = AA000030 /* Build configuration list for LumoTests */;
+			buildPhases = (
+				AA000025 /* Sources for LumoTests */,
+				AA000027 /* Frameworks for LumoTests */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				AA000029 /* PBXTargetDependency */,
+			);
+			name = LumoTests;
+			productName = LumoTests;
+			productReference = AA000020 /* LumoTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+
+		AA000029 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = AA600000 /* Lumo */;
+		};
+
 		AA700000 /* Project */ = {
 			isa = PBXProject;
 			attributes = {
@@ -122,6 +178,7 @@
 			projectRoot = "";
 			targets = (
 				AA600000 /* Lumo */,
+				AA000028 /* LumoTests */,
 			);
 		};
 
@@ -143,6 +200,59 @@
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
+		};
+
+		AA000030 /* Build configuration list for LumoTests */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				AA000031 /* LumoTests Debug */,
+				AA000032 /* LumoTests Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+
+		AA000031 /* LumoTests Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_IDENTITY = "-";
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = LumoTests/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/../Frameworks", "@loader_path/../Frameworks");
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				PRODUCT_BUNDLE_IDENTIFIER = me.proton.lumo.wrapper.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Lumo.app/Contents/MacOS/Lumo";
+			};
+			name = Debug;
+		};
+
+		AA000032 /* LumoTests Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CODE_SIGN_IDENTITY = "-";
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = "";
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = LumoTests/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = ("$(inherited)", "@executable_path/../Frameworks", "@loader_path/../Frameworks");
+				MACOSX_DEPLOYMENT_TARGET = 12.0;
+				PRODUCT_BUNDLE_IDENTIFIER = me.proton.lumo.wrapper.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_VERSION = 5.0;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Lumo.app/Contents/MacOS/Lumo";
+			};
+			name = Release;
 		};
 
 		AA800000 /* Project Debug */ = {

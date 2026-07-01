@@ -17,12 +17,25 @@ done
 
 echo "Building Lumo ($CONFIGURATION)..."
 
+# Capture xcodebuild output to a temp file so we can check its exit code
+# (piping to tail would mask failures).
+BUILD_LOG=$(mktemp)
 xcodebuild \
     -project "$PROJECT" \
     -scheme Lumo \
     -configuration "$CONFIGURATION" \
     build \
-    2>&1 | tail -5
+    > "$BUILD_LOG" 2>&1
+BUILD_STATUS=$?
+
+# Show last 5 lines of output.
+tail -5 "$BUILD_LOG"
+rm -f "$BUILD_LOG"
+
+if [ "$BUILD_STATUS" -ne 0 ]; then
+    echo "❌ Build failed (exit code $BUILD_STATUS)"
+    exit 1
+fi
 
 APP_PATH=$(find ~/Library/Developer/Xcode/DerivedData/Lumo-*/Build/Products/$CONFIGURATION/Lumo.app -maxdepth 0 2>/dev/null | head -1)
 

@@ -14,14 +14,12 @@ final class WebViewController: NSViewController {
     // MARK: – Properties
 
     let settings: AppSettings
+    private let urlString: String?
     private(set) var webView: WKWebView!
     private var findBar: NSSearchField?
     private var findBarHeightConstraint: NSLayoutConstraint?
-    private var progressObserver: NSKeyValueObservation?
     private var titleObserver: NSKeyValueObservation?
     private var urlObserver: NSKeyValueObservation?
-    private var canGoBackObserver: NSKeyValueObservation?
-    private var canGoForwardObserver: NSKeyValueObservation?
 
     private static let lumoURL = URL(string: "https://lumo.proton.me/")!
 
@@ -29,6 +27,7 @@ final class WebViewController: NSViewController {
 
     init(settings: AppSettings, urlString: String? = nil) {
         self.settings = settings
+        self.urlString = urlString
         super.init(nibName: nil, bundle: nil)
     }
 
@@ -70,8 +69,8 @@ final class WebViewController: NSViewController {
 
         self.view = container
 
-        // Navigate.
-        let targetURL = URL(string: "https://lumo.proton.me/") ?? Self.lumoURL
+        // Navigate — use provided URL or default to Lumo.
+        let targetURL = urlString.flatMap { URL(string: $0) } ?? Self.lumoURL
         webView.load(URLRequest(url: targetURL, cachePolicy: .useProtocolCachePolicy))
 
         // Observe properties for UI updates.
@@ -268,14 +267,6 @@ final class WebViewController: NSViewController {
                 self?.applyZoom()
             }
         }
-
-        canGoBackObserver = webView.observe(\.canGoBack, options: [.new]) { _, _ in
-            // Could update toolbar item enabled state here.
-        }
-
-        canGoForwardObserver = webView.observe(\.canGoForward, options: [.new]) { _, _ in
-            // Could update toolbar item enabled state here.
-        }
     }
 
     // MARK: – Zoom
@@ -389,7 +380,7 @@ final class WebViewController: NSViewController {
         webView.evaluateJavaScript("window.LumoNative && window.LumoNative.newChat()") { result, _ in
             if let success = result as? Bool, !success {
                 // Fallback: reload to root URL.
-                self.webView.load(URLRequest(url: URL(string: "https://lumo.proton.me/")!))
+                self.webView.load(URLRequest(url: Self.lumoURL))
             }
         }
     }
@@ -500,7 +491,7 @@ extension WebViewController: WKNavigationDelegate {
         <body><div class="card">
             <h1>🔌</h1>
             <p>You appear to be offline. Check your internet connection and try again.</p>
-            <button onclick="location.href='https://lumo.proton.me/'">Retry</button>
+            <button onclick="location.href='\(Self.lumoURL.absoluteString)'">Retry</button>
         </div></body>
         </html>
         """

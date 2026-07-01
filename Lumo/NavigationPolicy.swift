@@ -11,13 +11,16 @@ enum NavigationAction: Equatable {
 /// This is testable without instantiating WKWebView.
 enum NavigationPolicy {
 
+    private static let trackerDomains: Set<String> = [
+        "google-analytics.com", "doubleclick.net", "facebook.net",
+        "facebook.com", "hotjar.com", "segment.io", "amplitude.com",
+        "mixpanel.com", "fullstory.com", "snowplowanalytics.com",
+    ]
+
     static func decide(for url: URL, blockTrackers: Bool) -> NavigationAction {
         // Block known tracking domains.
         if blockTrackers, let host = url.host {
-            let trackerDomains = ["google-analytics.com", "doubleclick.net", "facebook.net",
-                                  "facebook.com", "hotjar.com", "segment.io", "amplitude.com",
-                                  "mixpanel.com", "fullstory.com", "snowplowanalytics.com"]
-            if trackerDomains.contains(where: { host.contains($0) }) {
+            if Self.trackerDomains.contains(where: { host == $0 || host.hasSuffix(".\($0)") }) {
                 return .cancel
             }
         }

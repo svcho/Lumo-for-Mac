@@ -32,7 +32,7 @@ final class NavigationPolicyTests: XCTestCase {
         XCTAssertEqual(NavigationPolicy.decide(for: url, blockTrackers: true), .openExternal)
     }
 
-    // MARK: – Tracker blocking
+    // MARK: – Tracker blocking (fixed domain matching)
 
     func testTrackerDomainBlocked() {
         let url = URL(string: "https://google-analytics.com/collect")!
@@ -42,6 +42,19 @@ final class NavigationPolicyTests: XCTestCase {
     func testTrackerSubdomainBlocked() {
         let url = URL(string: "https://www.doubleclick.net/ad")!
         XCTAssertEqual(NavigationPolicy.decide(for: url, blockTrackers: true), .cancel)
+    }
+
+    func testTrackerSubdomainDeepBlocked() {
+        let url = URL(string: "https://ads.google-analytics.com/collect")!
+        XCTAssertEqual(NavigationPolicy.decide(for: url, blockTrackers: true), .cancel)
+    }
+
+    func testNonTrackerDomainWithTrackerSubstringNotBlocked() {
+        // This domain contains "facebook.com" as a substring but is not
+        // facebook.com or a subdomain — should NOT be blocked (was a false
+        // positive before the fix).
+        let url = URL(string: "https://not-facebook.com/")!
+        XCTAssertEqual(NavigationPolicy.decide(for: url, blockTrackers: true), .openExternal)
     }
 
     func testTrackerBlockingDisabledAllowsTracker() {

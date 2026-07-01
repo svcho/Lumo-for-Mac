@@ -76,6 +76,11 @@ final class WebViewController: NSViewController {
 
         // Observe properties for UI updates.
         observeWebView()
+
+        // Spell checking — toggle via WebKit preference.
+        if !settings.enableSpellChecking {
+            webView.configuration.preferences.setValue(false, forKey: "spellCheckingEnabled")
+        }
     }
 
     // MARK: – WebView Configuration
@@ -108,10 +113,10 @@ final class WebViewController: NSViewController {
         injectNativeEnhancements(into: ucc)
         config.userContentController = ucc
 
-        // Custom user agent for best compatibility.
+        // Custom user agent — appends "Lumo/1.0" to the WebKit UA string
+        // for site compatibility. When disabled, uses the default WebKit UA.
         if settings.customUserAgent {
             config.applicationNameForUserAgent = "Lumo/1.0"
-            // We'll set a fine-tuned UA on the webView instance after creation.
         }
 
         // Allow local content & media.

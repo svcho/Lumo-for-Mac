@@ -23,7 +23,7 @@ enum NavigationPolicy {
         }
 
         // Allow same-origin navigation to proton.me domains.
-        if let host = url.host, host.hasSuffix("proton.me") {
+        if let host = url.host, host == "proton.me" || host.hasSuffix(".proton.me") {
             return .allow
         }
 

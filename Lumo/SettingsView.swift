@@ -11,7 +11,6 @@ struct SettingsView: View {
                     .font(.headline)
                     .fontWeight(.semibold)
 
-                Toggle("Use native title bar", isOn: $settings.useNativeTitleBar)
                 Toggle("Custom user agent (better compatibility)", isOn: $settings.customUserAgent)
             }
 

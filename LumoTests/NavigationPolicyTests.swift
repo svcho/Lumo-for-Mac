@@ -62,4 +62,26 @@ final class NavigationPolicyTests: XCTestCase {
         let url = URL(string: "about:blank")!
         XCTAssertEqual(NavigationPolicy.decide(for: url, blockTrackers: true), .allow)
     }
+
+    // MARK: – Domain suffix matching (phishing prevention)
+
+    func testPhishingDomainNotAllowed() {
+        let url = URL(string: "https://evilproton.me/")!
+        XCTAssertEqual(NavigationPolicy.decide(for: url, blockTrackers: true), .openExternal)
+    }
+
+    func testFakeProtonDomainNotAllowed() {
+        let url = URL(string: "https://fakeproton.me/login")!
+        XCTAssertEqual(NavigationPolicy.decide(for: url, blockTrackers: true), .openExternal)
+    }
+
+    func testProtonSubdomainStillAllowed() {
+        let url = URL(string: "https://lumo.proton.me/chat")!
+        XCTAssertEqual(NavigationPolicy.decide(for: url, blockTrackers: true), .allow)
+    }
+
+    func testExactProtonMeAllowed() {
+        let url = URL(string: "https://proton.me/")!
+        XCTAssertEqual(NavigationPolicy.decide(for: url, blockTrackers: true), .allow)
+    }
 }

@@ -20,6 +20,7 @@ final class WebViewController: NSViewController {
     private var findBarHeightConstraint: NSLayoutConstraint?
     private var titleObserver: NSKeyValueObservation?
     private var urlObserver: NSKeyValueObservation?
+    private var appearanceObserver: NSKeyValueObservation?
 
     private static let lumoURL = URL(string: "https://lumo.proton.me/")!
 
@@ -61,7 +62,9 @@ final class WebViewController: NSViewController {
         container.addSubview(webView)
 
         NSLayoutConstraint.activate([
-            webView.topAnchor.constraint(equalTo: container.safeAreaLayoutGuide.topAnchor),
+            // Pin to the container top (not the safe area) so the page extends
+            // under the transparent titlebar/toolbar.
+            webView.topAnchor.constraint(equalTo: container.topAnchor),
             webView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
             webView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             webView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
@@ -82,7 +85,8 @@ final class WebViewController: NSViewController {
         }
 
         // Observe system appearance changes for theme syncing.
-        NSApp?.observe(\.effectiveAppearance, options: [.new]) { [weak self] _, _ in
+        // The observation must be retained or it is invalidated immediately.
+        appearanceObserver = NSApp?.observe(\.effectiveAppearance, options: [.new]) { [weak self] _, _ in
             DispatchQueue.main.async {
                 self?.systemAppearanceChanged()
             }
@@ -153,11 +157,6 @@ final class WebViewController: NSViewController {
         /* Remove any default white background to let vibrancy through. */
         html, body {
             background-color: transparent !important;
-        }
-
-        /* Smooth scrolling that feels native. */
-        * {
-            scroll-behavior: smooth;
         }
 
         /* Native-style focus rings. */

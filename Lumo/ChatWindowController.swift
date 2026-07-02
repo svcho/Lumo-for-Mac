@@ -11,7 +11,9 @@ final class ChatWindowController: NSWindowController, NSWindowDelegate {
         self.settings = settings
         self.webViewController = WebViewController(settings: settings, urlString: urlString)
 
-        let windowSize = NSSize(width: 1200, height: 780)
+        // Tall default, clamped so the window still fits on laptop displays.
+        let screenHeight = NSScreen.main?.visibleFrame.height ?? 900
+        let windowSize = NSSize(width: 1200, height: min(1170, screenHeight - 24))
         let minSize = NSSize(width: 800, height: 500)
 
         let styleMask: NSWindow.StyleMask = [

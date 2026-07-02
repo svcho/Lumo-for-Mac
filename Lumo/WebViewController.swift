@@ -159,6 +159,15 @@ final class WebViewController: NSViewController {
             background-color: transparent !important;
         }
 
+        /* Reserve space for the native titlebar: Lumo lays out its sidebar and
+           main area as rounded cards on a full-window backdrop, so padding the
+           card container keeps the backdrop painting to the very top edge while
+           the UI clears the traffic lights. The var is set from native code to
+           match the real titlebar height. */
+        .main-layout-component {
+            padding-top: var(--lumo-native-titlebar, 38px) !important;
+        }
+
         /* Native-style focus rings. */
         *:focus-visible {
             outline: 2px solid -webkit-focus-ring-color !important;
@@ -302,6 +311,19 @@ final class WebViewController: NSViewController {
 
     @objc private func pageReady(_ notification: Notification) {
         systemAppearanceChanged()
+        applyTitlebarInset()
+    }
+
+    /// Pushes the page's card layout below the native titlebar so the traffic
+    /// lights don't overlap the web UI, while the page background still
+    /// extends edge-to-edge behind them.
+    private func applyTitlebarInset() {
+        guard let window = view.window, let contentView = window.contentView else { return }
+        let titlebarHeight = contentView.frame.height - window.contentLayoutRect.height
+        let inset = max(titlebarHeight, 28) + 8
+        webView.evaluateJavaScript(
+            "document.documentElement.style.setProperty('--lumo-native-titlebar', '\(Int(inset))px')"
+        ) { _, _ in }
     }
 
     // MARK: – Zoom
@@ -481,6 +503,7 @@ extension WebViewController: WKNavigationDelegate {
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         applyZoom()
         systemAppearanceChanged()
+        applyTitlebarInset()
         if let title = webView.title, !title.isEmpty {
             view.window?.title = title
         } else {

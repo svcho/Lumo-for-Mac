@@ -49,7 +49,9 @@ echo "✅ Build successful!"
 echo "   App: $APP_PATH"
 echo ""
 
-# Copy to project dir for convenience
+# Copy to project dir for convenience. Remove any existing copy first —
+# cp -R into an existing directory would nest the app inside it.
+rm -rf ./Lumo.app
 cp -R "$APP_PATH" ./Lumo.app
 echo "   Also copied to: $(pwd)/Lumo.app"
 

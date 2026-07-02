@@ -20,6 +20,7 @@ final class WebViewController: NSViewController {
     private var findBarHeightConstraint: NSLayoutConstraint?
     private var titleObserver: NSKeyValueObservation?
     private var urlObserver: NSKeyValueObservation?
+    private var appearanceObserver: NSKeyValueObservation?
 
     private static let lumoURL = URL(string: "https://lumo.proton.me/")!
 
@@ -61,7 +62,9 @@ final class WebViewController: NSViewController {
         container.addSubview(webView)
 
         NSLayoutConstraint.activate([
-            webView.topAnchor.constraint(equalTo: container.safeAreaLayoutGuide.topAnchor),
+            // Pin to the container top (not the safe area) so the page extends
+            // under the transparent titlebar/toolbar.
+            webView.topAnchor.constraint(equalTo: container.topAnchor),
             webView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
             webView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             webView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
@@ -82,7 +85,8 @@ final class WebViewController: NSViewController {
         }
 
         // Observe system appearance changes for theme syncing.
-        NSApp?.observe(\.effectiveAppearance, options: [.new]) { [weak self] _, _ in
+        // The observation must be retained or it is invalidated immediately.
+        appearanceObserver = NSApp?.observe(\.effectiveAppearance, options: [.new]) { [weak self] _, _ in
             DispatchQueue.main.async {
                 self?.systemAppearanceChanged()
             }
@@ -155,9 +159,13 @@ final class WebViewController: NSViewController {
             background-color: transparent !important;
         }
 
-        /* Smooth scrolling that feels native. */
-        * {
-            scroll-behavior: smooth;
+        /* Reserve space for the native titlebar: Lumo lays out its sidebar and
+           main area as rounded cards on a full-window backdrop, so padding the
+           card container keeps the backdrop painting to the very top edge while
+           the UI clears the traffic lights. The var is set from native code to
+           match the real titlebar height. */
+        .main-layout-component {
+            padding-top: var(--lumo-native-titlebar, 38px) !important;
         }
 
         /* Native-style focus rings. */
@@ -303,6 +311,26 @@ final class WebViewController: NSViewController {
 
     @objc private func pageReady(_ notification: Notification) {
         systemAppearanceChanged()
+        applyTitlebarInset()
+    }
+
+    /// Pushes the page's card layout below the native titlebar so the traffic
+    /// lights don't overlap the web UI, while the page background still
+    /// extends edge-to-edge behind them.
+    private func applyTitlebarInset() {
+        guard let window = view.window, let contentView = window.contentView else { return }
+        let inset: CGFloat
+        if let close = window.standardWindowButton(.closeButton), let bar = close.superview {
+            // Pad to just below the traffic-light buttons rather than the full
+            // titlebar height (which includes empty toolbar space).
+            let frame = bar.convert(close.frame, to: nil)
+            inset = window.frame.height - frame.minY + 10
+        } else {
+            inset = max(contentView.frame.height - window.contentLayoutRect.height, 28) + 8
+        }
+        webView.evaluateJavaScript(
+            "document.documentElement.style.setProperty('--lumo-native-titlebar', '\(Int(inset))px')"
+        ) { _, _ in }
     }
 
     // MARK: – Zoom
@@ -482,6 +510,7 @@ extension WebViewController: WKNavigationDelegate {
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         applyZoom()
         systemAppearanceChanged()
+        applyTitlebarInset()
         if let title = webView.title, !title.isEmpty {
             view.window?.title = title
         } else {

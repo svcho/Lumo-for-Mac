@@ -324,7 +324,7 @@ final class WebViewController: NSViewController {
             // Pad to just below the traffic-light buttons rather than the full
             // titlebar height (which includes empty toolbar space).
             let frame = bar.convert(close.frame, to: nil)
-            inset = window.frame.height - frame.minY + 4
+            inset = window.frame.height - frame.minY + 10
         } else {
             inset = max(contentView.frame.height - window.contentLayoutRect.height, 28) + 8
         }

@@ -11,9 +11,12 @@ final class ChatWindowController: NSWindowController, NSWindowDelegate {
         self.settings = settings
         self.webViewController = WebViewController(settings: settings, urlString: urlString)
 
-        // Tall default, clamped so the window still fits on laptop displays.
-        let screenHeight = NSScreen.main?.visibleFrame.height ?? 900
-        let windowSize = NSSize(width: 1200, height: min(1170, screenHeight - 24))
+        // Large default, clamped so the window still fits on laptop displays.
+        let visible = NSScreen.main?.visibleFrame.size ?? NSSize(width: 1440, height: 900)
+        let windowSize = NSSize(
+            width: min(1400, visible.width - 24),
+            height: min(1280, visible.height - 24)
+        )
         let minSize = NSSize(width: 800, height: 500)
 
         let styleMask: NSWindow.StyleMask = [
@@ -41,7 +44,6 @@ final class ChatWindowController: NSWindowController, NSWindowDelegate {
         window.toolbarStyle = .unified
         window.appearance = NSAppearance(named: .vibrantDark)
         window.minSize = minSize
-        window.center()
         window.isReleasedWhenClosed = false
 
         // Toolbar for native feel.
@@ -53,6 +55,12 @@ final class ChatWindowController: NSWindowController, NSWindowDelegate {
         super.init(window: window)
         window.delegate = self
         window.contentViewController = webViewController
+
+        // Assigning contentViewController resizes the window to the view's
+        // fitting size (collapsing it to minSize), so set the intended frame
+        // afterwards.
+        window.setContentSize(windowSize)
+        window.center()
 
         // Set toolbar delegate after super.init since it references self.
         toolbar.delegate = self

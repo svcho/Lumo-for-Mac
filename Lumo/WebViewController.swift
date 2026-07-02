@@ -319,8 +319,15 @@ final class WebViewController: NSViewController {
     /// extends edge-to-edge behind them.
     private func applyTitlebarInset() {
         guard let window = view.window, let contentView = window.contentView else { return }
-        let titlebarHeight = contentView.frame.height - window.contentLayoutRect.height
-        let inset = max(titlebarHeight, 28) + 8
+        let inset: CGFloat
+        if let close = window.standardWindowButton(.closeButton), let bar = close.superview {
+            // Pad to just below the traffic-light buttons rather than the full
+            // titlebar height (which includes empty toolbar space).
+            let frame = bar.convert(close.frame, to: nil)
+            inset = window.frame.height - frame.minY + 4
+        } else {
+            inset = max(contentView.frame.height - window.contentLayoutRect.height, 28) + 8
+        }
         webView.evaluateJavaScript(
             "document.documentElement.style.setProperty('--lumo-native-titlebar', '\(Int(inset))px')"
         ) { _, _ in }

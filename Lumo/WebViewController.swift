@@ -168,6 +168,13 @@ final class WebViewController: NSViewController {
             padding-top: var(--lumo-native-titlebar, 38px) !important;
         }
 
+        /* Pages without the card layout (e.g. the Proton account sign-in page)
+           place their header/controls at the very top edge. Inset the whole
+           page so those controls clear the transparent titlebar too. */
+        body:not(:has(.main-layout-component)) {
+            padding-top: var(--lumo-native-titlebar, 38px) !important;
+        }
+
         /* Native-style focus rings. */
         *:focus-visible {
             outline: 2px solid -webkit-focus-ring-color !important;
@@ -295,7 +302,11 @@ final class WebViewController: NSViewController {
     // MARK: – Theme Sync
 
     @objc private func systemAppearanceChanged() {
-        let isDark = view.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        // The window chrome is forced to .vibrantDark (see ChatWindowController),
+        // so view.effectiveAppearance is always dark. Read the app/system
+        // appearance so the web content follows the real Light/Dark setting.
+        let appearance = NSApp?.effectiveAppearance ?? view.effectiveAppearance
+        let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         let theme = isDark ? "dark" : "light"
 
         webView.evaluateJavaScript("""

@@ -6,16 +6,18 @@ final class ChatWindowController: NSWindowController, NSWindowDelegate {
 
     let settings: AppSettings
     let webViewController: WebViewController
+    private static let frameAutosaveName = NSWindow.FrameAutosaveName("lumo.chatWindow")
 
     init(settings: AppSettings, urlString: String? = nil) {
         self.settings = settings
         self.webViewController = WebViewController(settings: settings, urlString: urlString)
 
-        // Large default, clamped so the window still fits on laptop displays.
+        // Wide, compact default; restored from AppKit frame autosave after the
+        // user moves or resizes the window.
         let visible = NSScreen.main?.visibleFrame.size ?? NSSize(width: 1440, height: 900)
         let windowSize = NSSize(
             width: min(1400, visible.width - 24),
-            height: min(1280, visible.height - 24)
+            height: min(500, visible.height - 24)
         )
         let minSize = NSSize(width: 800, height: 500)
 
@@ -45,6 +47,7 @@ final class ChatWindowController: NSWindowController, NSWindowDelegate {
         window.appearance = NSAppearance(named: .vibrantDark)
         window.minSize = minSize
         window.isReleasedWhenClosed = false
+        window.setFrameAutosaveName(Self.frameAutosaveName)
 
         // Toolbar for native feel.
         let toolbar = NSToolbar(identifier: "lumo.toolbar")
@@ -57,10 +60,12 @@ final class ChatWindowController: NSWindowController, NSWindowDelegate {
         window.contentViewController = webViewController
 
         // Assigning contentViewController resizes the window to the view's
-        // fitting size (collapsing it to minSize), so set the intended frame
-        // afterwards.
-        window.setContentSize(windowSize)
-        window.center()
+        // fitting size (collapsing it to minSize), so restore or set the
+        // intended frame afterwards.
+        if !window.setFrameUsingName(Self.frameAutosaveName) {
+            window.setContentSize(windowSize)
+            window.center()
+        }
 
         // Set toolbar delegate after super.init since it references self.
         toolbar.delegate = self

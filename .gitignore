@@ -35,6 +35,7 @@ Package.resolved
 # Build output
 Lumo.app
 *.app
+*.zip
 
 # Signing & provisioning (never commit these)
 *.mobileprovision

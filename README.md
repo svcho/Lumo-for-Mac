@@ -63,8 +63,12 @@ Lumo/
 
 ### Using the build script:
 ```bash
-./build.sh --release --open
+./build.sh --open
 ```
+
+The script builds with the locally selected Xcode, writes DerivedData under
+`build/DerivedData`, and installs the latest app at `/Applications/Lumo.app`.
+Use `--debug` for a Debug build or `--install-dir <path>` to install elsewhere.
 
 ### Using Xcode:
 1. Open `Lumo.xcodeproj` in Xcode

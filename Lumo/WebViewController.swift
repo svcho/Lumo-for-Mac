@@ -1,6 +1,18 @@
 import AppKit
 import WebKit
 
+private final class TitlebarDragView: NSView {
+    override var mouseDownCanMoveWindow: Bool { true }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool {
+        true
+    }
+
+    override func mouseDown(with event: NSEvent) {
+        window?.performDrag(with: event)
+    }
+}
+
 /// The main view controller hosting the WKWebView for Proton Lumo.
 ///
 /// Key design decisions for native feel + performance:
@@ -18,6 +30,7 @@ final class WebViewController: NSViewController {
     private(set) var webView: WKWebView!
     private var findBar: NSSearchField?
     private var findBarHeightConstraint: NSLayoutConstraint?
+    private var titlebarDragHeightConstraint: NSLayoutConstraint?
     private var titleObserver: NSKeyValueObservation?
     private var urlObserver: NSKeyValueObservation?
     private var appearanceObserver: NSKeyValueObservation?
@@ -61,6 +74,13 @@ final class WebViewController: NSViewController {
         container.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
         container.addSubview(webView)
 
+        let titlebarDragView = TitlebarDragView()
+        titlebarDragView.translatesAutoresizingMaskIntoConstraints = false
+        container.addSubview(titlebarDragView)
+
+        let titlebarDragHeightConstraint = titlebarDragView.heightAnchor.constraint(equalToConstant: 46)
+        self.titlebarDragHeightConstraint = titlebarDragHeightConstraint
+
         NSLayoutConstraint.activate([
             // Pin to the container top (not the safe area) so the page extends
             // under the transparent titlebar/toolbar.
@@ -68,6 +88,10 @@ final class WebViewController: NSViewController {
             webView.bottomAnchor.constraint(equalTo: container.bottomAnchor),
             webView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             webView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            titlebarDragView.topAnchor.constraint(equalTo: container.topAnchor),
+            titlebarDragView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            titlebarDragView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            titlebarDragHeightConstraint,
         ])
 
         self.view = container
@@ -342,6 +366,7 @@ final class WebViewController: NSViewController {
         webView.evaluateJavaScript(
             "document.documentElement.style.setProperty('--lumo-native-titlebar', '\(Int(inset))px')"
         ) { _, _ in }
+        titlebarDragHeightConstraint?.constant = inset
     }
 
     // MARK: – Zoom

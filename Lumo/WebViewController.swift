@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import WebKit
 
 private final class TitlebarDragView: NSView {
@@ -34,6 +35,8 @@ final class WebViewController: NSViewController {
     private var titleObserver: NSKeyValueObservation?
     private var urlObserver: NSKeyValueObservation?
     private var appearanceObserver: NSKeyValueObservation?
+    private var settingsCancellables: Set<AnyCancellable> = []
+    private var downloadDestinations: [ObjectIdentifier: URL] = [:]
 
     private static let lumoURL = URL(string: "https://lumo.proton.me/")!
 
@@ -105,7 +108,7 @@ final class WebViewController: NSViewController {
 
         // Spell checking — toggle via WebKit preference.
         if !settings.enableSpellChecking {
-            webView.configuration.preferences.setValue(false, forKey: "spellCheckingEnabled")
+            Self.setPrivatePreference(false, key: "spellCheckingEnabled", on: webView.configuration.preferences)
         }
 
         // Observe system appearance changes for theme syncing.
@@ -123,6 +126,36 @@ final class WebViewController: NSViewController {
             name: LumoMessageHandler.pageReadyNotification,
             object: nil
         )
+
+        settings.$zoomLevel
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.applyZoom() }
+            .store(in: &settingsCancellables)
+
+        settings.$enableSpellChecking
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] enabled in
+                guard let self else { return }
+                Self.setPrivatePreference(enabled, key: "spellCheckingEnabled",
+                                          on: self.webView.configuration.preferences)
+            }
+            .store(in: &settingsCancellables)
+    }
+
+    // MARK: – Private Preferences
+
+    /// Sets a non-public WKPreferences key only if a setter for it still exists
+    /// (public `set<Key>:` or KVC-reachable `_set<Key>:`), so a future WebKit
+    /// that drops the key degrades to a no-op instead of crashing with
+    /// NSUnknownKeyException.
+    private static func setPrivatePreference(_ value: Any?, key: String, on preferences: WKPreferences) {
+        let capitalized = key.prefix(1).uppercased() + key.dropFirst()
+        let setter = Selector(("set\(capitalized):"))
+        let privateSetter = Selector(("_set\(capitalized):"))
+        guard preferences.responds(to: setter) || preferences.responds(to: privateSetter) else { return }
+        preferences.setValue(value, forKey: key)
     }
 
     // MARK: – WebView Configuration
@@ -147,7 +180,7 @@ final class WebViewController: NSViewController {
 
         // Enable developer extras only in debug builds.
         #if DEBUG
-        config.preferences.setValue(true, forKey: "developerExtrasEnabled")
+        Self.setPrivatePreference(true, key: "developerExtrasEnabled", on: config.preferences)
         #endif
 
         // Inject user content controller for native bridge + styling.
@@ -521,7 +554,7 @@ extension WebViewController: WKNavigationDelegate {
     func webView(_ webView: WKWebView, decidePolicyFor navigationAction: WKNavigationAction,
                  decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
 
-        guard let url = navigationAction.targetFrame?.request.url ?? navigationAction.request.url else {
+        guard let url = navigationAction.request.url else {
             decisionHandler(.cancel)
             return
         }
@@ -555,16 +588,28 @@ extension WebViewController: WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-        // Show error page for network failures.
-        if let urlError = error as? URLError, urlError.code == .notConnectedToInternet {
-            showOfflinePage()
-        }
+        handleLoadFailure(error)
     }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        handleLoadFailure(error)
+    }
+
+    private func handleLoadFailure(_ error: Error) {
+        let nsError = error as NSError
+        // Benign: superseded navigations and policy-cancelled/download-converted
+        // frame loads. WebKitErrorDomain 102 = "Frame load interrupted".
+        if nsError.code == NSURLErrorCancelled { return }
+        if nsError.domain == "WebKitErrorDomain" && nsError.code == 102 { return }
+
+        view.window?.title = "Lumo"
+        let message: String
         if let urlError = error as? URLError, urlError.code == .notConnectedToInternet {
-            showOfflinePage()
+            message = "You appear to be offline. Check your internet connection and try again."
+        } else {
+            message = "The page could not be loaded. \(nsError.localizedDescription)"
         }
+        showOfflinePage(message: message)
     }
 
     // MARK: – Authentication Challenge
@@ -583,7 +628,11 @@ extension WebViewController: WKNavigationDelegate {
 
     // MARK: – Offline Page
 
-    private func showOfflinePage() {
+    private func showOfflinePage(message: String) {
+        let escaped = message
+            .replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
         let html = """
         <!DOCTYPE html>
         <html>
@@ -598,7 +647,7 @@ extension WebViewController: WKNavigationDelegate {
         </style></head>
         <body><div class="card">
             <h1>🔌</h1>
-            <p>You appear to be offline. Check your internet connection and try again.</p>
+            <p>\(escaped)</p>
             <button onclick="location.href='\(Self.lumoURL.absoluteString)'">Retry</button>
         </div></body>
         </html>
@@ -649,6 +698,7 @@ extension WebViewController: WKDownloadDelegate {
         panel.directoryURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
 
         if panel.runModal() == .OK, let url = panel.url {
+            downloadDestinations[ObjectIdentifier(download)] = url
             completionHandler(url)
         } else {
             completionHandler(nil)
@@ -656,12 +706,21 @@ extension WebViewController: WKDownloadDelegate {
     }
 
     func downloadDidFinish(_ download: WKDownload) {
-        // Could show a notification or badge in the future.
+        if let url = downloadDestinations.removeValue(forKey: ObjectIdentifier(download)) {
+            NSWorkspace.shared.activateFileViewerSelecting([url])
+        }
     }
 
     func download(_ download: WKDownload, didFailWithError error: Error) {
-        // Could show an alert in the future.
-        print("Download failed: \(error.localizedDescription)")
+        downloadDestinations.removeValue(forKey: ObjectIdentifier(download))
+        let nsError = error as NSError
+        if nsError.code == NSURLErrorCancelled { return }  // user cancelled — not a failure
+        let alert = NSAlert()
+        alert.messageText = "Download Failed"
+        alert.informativeText = error.localizedDescription
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
     }
 }
 

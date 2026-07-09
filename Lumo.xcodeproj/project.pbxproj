@@ -17,9 +17,12 @@
 		AA000012 /* PBXBuildFile */ = {isa = PBXBuildFile; fileRef = AA000013 /* Lumo.entitlements */;};
 		AA000014 /* PBXBuildFile */ = {isa = PBXBuildFile; fileRef = AA000015 /* NavigationPolicy.swift */;};
 		AA000023 /* PBXBuildFile */ = {isa = PBXBuildFile; fileRef = AA000021 /* NavigationPolicyTests.swift */;};
+		AA000016 /* PBXBuildFile */ = {isa = PBXBuildFile; fileRef = AA000017 /* UpdateChecker.swift */;};
+		AA000018 /* PBXBuildFile */ = {isa = PBXBuildFile; fileRef = AA000019 /* UpdateCheckerTests.swift */;};
 
 		AA000020 /* LumoTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = LumoTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		AA000021 /* NavigationPolicyTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationPolicyTests.swift; sourceTree = "<group>"; };
+		AA000019 /* UpdateCheckerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateCheckerTests.swift; sourceTree = "<group>"; };
 		AA000022 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 
 		AA000001 /* LumoApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LumoApp.swift; sourceTree = "<group>"; };
@@ -33,6 +36,7 @@
 		AA000011 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		AA000013 /* Lumo.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Lumo.entitlements; sourceTree = "<group>"; };
 		AA000015 /* NavigationPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationPolicy.swift; sourceTree = "<group>"; };
+		AA000017 /* UpdateChecker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdateChecker.swift; sourceTree = "<group>"; };
 
 		AA100000 /* Lumo */ = {isa = PBXGroup; children = (
 			AA100001 /* Lumo */,
@@ -52,6 +56,7 @@
 			AA00000B /* AppSettings.swift */,
 			AA00000D /* SettingsView.swift */,
 			AA000015 /* NavigationPolicy.swift */,
+			AA000017 /* UpdateChecker.swift */,
 			AA00000F /* Assets.xcassets */,
 			AA000011 /* Info.plist */,
 			AA000013 /* Lumo.entitlements */,
@@ -59,6 +64,7 @@
 
 		AA000024 /* LumoTests */ = {isa = PBXGroup; children = (
 			AA000021 /* NavigationPolicyTests.swift */,
+			AA000019 /* UpdateCheckerTests.swift */,
 			AA000022 /* Info.plist */,
 		); path = LumoTests; sourceTree = "<group>"; };
 
@@ -76,6 +82,7 @@
 				AA00000A /* AppSettings.swift in Sources */,
 				AA00000C /* SettingsView.swift in Sources */,
 				AA000014 /* NavigationPolicy.swift in Sources */,
+				AA000016 /* UpdateChecker.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -102,6 +109,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				AA000023 /* NavigationPolicyTests.swift in Sources */,
+				AA000018 /* UpdateCheckerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

@@ -1,0 +1,19 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: macos-15
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build and test
+        run: |
+          xcodebuild test \
+            -project Lumo.xcodeproj \
+            -scheme Lumo \
+            -destination 'platform=macOS' \
+            CODE_SIGNING_ALLOWED=NO

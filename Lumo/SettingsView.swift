@@ -12,6 +12,9 @@ struct SettingsView: View {
                     .fontWeight(.semibold)
 
                 Toggle("Custom user agent (better compatibility)", isOn: $settings.customUserAgent)
+                Text("Applies to new windows.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
 
             Divider()

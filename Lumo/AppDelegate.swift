@@ -105,6 +105,35 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApplication.shared.sendAction(Selector(("showPreferencesWindow:")), to: nil, from: nil)
     }
 
+    @objc func checkForUpdates(_ sender: Any?) {
+        let current = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? "0"
+        UpdateChecker.fetchLatestRelease { release in
+            let alert = NSAlert()
+            alert.alertStyle = .informational
+            if let release {
+                if UpdateChecker.isNewer(remote: release.version, than: current) {
+                    alert.messageText = "Update Available"
+                    alert.informativeText = "Lumo \(release.version) is available (you have \(current))."
+                    alert.addButton(withTitle: "View Release")
+                    alert.addButton(withTitle: "Later")
+                    if alert.runModal() == .alertFirstButtonReturn {
+                        NSWorkspace.shared.open(release.url)
+                    }
+                } else {
+                    alert.messageText = "You're up to date"
+                    alert.informativeText = "Lumo \(current) is the latest version."
+                    alert.addButton(withTitle: "OK")
+                    alert.runModal()
+                }
+            } else {
+                alert.messageText = "Could Not Check for Updates"
+                alert.informativeText = "The GitHub releases API could not be reached. Try again later."
+                alert.addButton(withTitle: "OK")
+                alert.runModal()
+            }
+        }
+    }
+
     @objc func openAbout() {
         let alert = NSAlert()
         alert.messageText = "Lumo"

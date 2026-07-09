@@ -12,6 +12,7 @@ enum MenuBuilder {
         let appMenuItem = NSMenuItem()
         let appMenu = NSMenu()
         appMenu.addItem(withTitle: "About Lumo", action: #selector(target.openAbout), keyEquivalent: "")
+        appMenu.addItem(withTitle: "Check for Updates…", action: #selector(target.checkForUpdates(_:)), keyEquivalent: "")
         appMenu.addItem(NSMenuItem.separator())
         appMenu.addItem(withTitle: "Settings…", action: #selector(target.showSettings), keyEquivalent: ",")
         appMenu.addItem(NSMenuItem.separator())

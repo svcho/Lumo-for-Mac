@@ -35,6 +35,18 @@ enum NavigationPolicy {
             return .openExternal
         }
 
-        return .allow
+        // Schemes WebKit must handle internally.
+        if url.scheme == "about" || url.scheme == "blob" {
+            return .allow
+        }
+
+        // User-intent schemes handled by other apps (Mail, FaceTime, …).
+        if let scheme = url.scheme,
+           ["mailto", "tel", "facetime", "sms"].contains(scheme) {
+            return .openExternal
+        }
+
+        // Default-deny anything else.
+        return .cancel
     }
 }

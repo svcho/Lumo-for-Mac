@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import WebKit
 
 private final class TitlebarDragView: NSView {
@@ -34,6 +35,7 @@ final class WebViewController: NSViewController {
     private var titleObserver: NSKeyValueObservation?
     private var urlObserver: NSKeyValueObservation?
     private var appearanceObserver: NSKeyValueObservation?
+    private var settingsCancellables: Set<AnyCancellable> = []
 
     private static let lumoURL = URL(string: "https://lumo.proton.me/")!
 
@@ -123,6 +125,22 @@ final class WebViewController: NSViewController {
             name: LumoMessageHandler.pageReadyNotification,
             object: nil
         )
+
+        settings.$zoomLevel
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.applyZoom() }
+            .store(in: &settingsCancellables)
+
+        settings.$enableSpellChecking
+            .removeDuplicates()
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] enabled in
+                guard let self else { return }
+                Self.setPrivatePreference(enabled, key: "spellCheckingEnabled",
+                                          on: self.webView.configuration.preferences)
+            }
+            .store(in: &settingsCancellables)
     }
 
     // MARK: – Private Preferences

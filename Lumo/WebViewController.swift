@@ -36,6 +36,7 @@ final class WebViewController: NSViewController {
     private var urlObserver: NSKeyValueObservation?
     private var appearanceObserver: NSKeyValueObservation?
     private var settingsCancellables: Set<AnyCancellable> = []
+    private var downloadDestinations: [ObjectIdentifier: URL] = [:]
 
     private static let lumoURL = URL(string: "https://lumo.proton.me/")!
 
@@ -697,6 +698,7 @@ extension WebViewController: WKDownloadDelegate {
         panel.directoryURL = FileManager.default.urls(for: .downloadsDirectory, in: .userDomainMask).first
 
         if panel.runModal() == .OK, let url = panel.url {
+            downloadDestinations[ObjectIdentifier(download)] = url
             completionHandler(url)
         } else {
             completionHandler(nil)
@@ -704,12 +706,21 @@ extension WebViewController: WKDownloadDelegate {
     }
 
     func downloadDidFinish(_ download: WKDownload) {
-        // Could show a notification or badge in the future.
+        if let url = downloadDestinations.removeValue(forKey: ObjectIdentifier(download)) {
+            NSWorkspace.shared.activateFileViewerSelecting([url])
+        }
     }
 
     func download(_ download: WKDownload, didFailWithError error: Error) {
-        // Could show an alert in the future.
-        print("Download failed: \(error.localizedDescription)")
+        downloadDestinations.removeValue(forKey: ObjectIdentifier(download))
+        let nsError = error as NSError
+        if nsError.code == NSURLErrorCancelled { return }  // user cancelled — not a failure
+        let alert = NSAlert()
+        alert.messageText = "Download Failed"
+        alert.informativeText = error.localizedDescription
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
     }
 }
 

@@ -64,9 +64,9 @@ final class NavigationPolicyTests: XCTestCase {
 
     // MARK: – Non-HTTP schemes
 
-    func testNonHTTPSchemeAllowed() {
+    func testMailtoOpenedExternally() {
         let url = URL(string: "mailto:someone@example.com")!
-        XCTAssertEqual(NavigationPolicy.decide(for: url, blockTrackers: true), .allow)
+        XCTAssertEqual(NavigationPolicy.decide(for: url, blockTrackers: true), .openExternal)
     }
 
     // MARK: – Edge cases
@@ -74,6 +74,28 @@ final class NavigationPolicyTests: XCTestCase {
     func testURLWithNoHostAllowed() {
         let url = URL(string: "about:blank")!
         XCTAssertEqual(NavigationPolicy.decide(for: url, blockTrackers: true), .allow)
+    }
+
+    // MARK: – Scheme routing
+
+    func testTelOpenedExternally() {
+        let url = URL(string: "tel:+15551234567")!
+        XCTAssertEqual(NavigationPolicy.decide(for: url, blockTrackers: true), .openExternal)
+    }
+
+    func testBlobURLAllowed() {
+        let url = URL(string: "blob:https://lumo.proton.me/some-uuid")!
+        XCTAssertEqual(NavigationPolicy.decide(for: url, blockTrackers: true), .allow)
+    }
+
+    func testDataURLCancelled() {
+        let url = URL(string: "data:text/html,hello")!
+        XCTAssertEqual(NavigationPolicy.decide(for: url, blockTrackers: true), .cancel)
+    }
+
+    func testUnknownSchemeCancelled() {
+        let url = URL(string: "foo://bar")!
+        XCTAssertEqual(NavigationPolicy.decide(for: url, blockTrackers: true), .cancel)
     }
 
     // MARK: – Domain suffix matching (phishing prevention)

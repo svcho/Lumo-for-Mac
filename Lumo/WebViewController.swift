@@ -555,16 +555,28 @@ extension WebViewController: WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-        // Show error page for network failures.
-        if let urlError = error as? URLError, urlError.code == .notConnectedToInternet {
-            showOfflinePage()
-        }
+        handleLoadFailure(error)
     }
 
     func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+        handleLoadFailure(error)
+    }
+
+    private func handleLoadFailure(_ error: Error) {
+        let nsError = error as NSError
+        // Benign: superseded navigations and policy-cancelled/download-converted
+        // frame loads. WebKitErrorDomain 102 = "Frame load interrupted".
+        if nsError.code == NSURLErrorCancelled { return }
+        if nsError.domain == "WebKitErrorDomain" && nsError.code == 102 { return }
+
+        view.window?.title = "Lumo"
+        let message: String
         if let urlError = error as? URLError, urlError.code == .notConnectedToInternet {
-            showOfflinePage()
+            message = "You appear to be offline. Check your internet connection and try again."
+        } else {
+            message = "The page could not be loaded. \(nsError.localizedDescription)"
         }
+        showOfflinePage(message: message)
     }
 
     // MARK: – Authentication Challenge
@@ -583,7 +595,11 @@ extension WebViewController: WKNavigationDelegate {
 
     // MARK: – Offline Page
 
-    private func showOfflinePage() {
+    private func showOfflinePage(message: String) {
+        let escaped = message
+            .replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
         let html = """
         <!DOCTYPE html>
         <html>
@@ -598,7 +614,7 @@ extension WebViewController: WKNavigationDelegate {
         </style></head>
         <body><div class="card">
             <h1>🔌</h1>
-            <p>You appear to be offline. Check your internet connection and try again.</p>
+            <p>\(escaped)</p>
             <button onclick="location.href='\(Self.lumoURL.absoluteString)'">Retry</button>
         </div></body>
         </html>

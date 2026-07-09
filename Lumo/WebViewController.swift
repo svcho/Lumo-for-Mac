@@ -105,7 +105,7 @@ final class WebViewController: NSViewController {
 
         // Spell checking — toggle via WebKit preference.
         if !settings.enableSpellChecking {
-            webView.configuration.preferences.setValue(false, forKey: "spellCheckingEnabled")
+            Self.setPrivatePreference(false, key: "spellCheckingEnabled", on: webView.configuration.preferences)
         }
 
         // Observe system appearance changes for theme syncing.
@@ -123,6 +123,20 @@ final class WebViewController: NSViewController {
             name: LumoMessageHandler.pageReadyNotification,
             object: nil
         )
+    }
+
+    // MARK: – Private Preferences
+
+    /// Sets a non-public WKPreferences key only if a setter for it still exists
+    /// (public `set<Key>:` or KVC-reachable `_set<Key>:`), so a future WebKit
+    /// that drops the key degrades to a no-op instead of crashing with
+    /// NSUnknownKeyException.
+    private static func setPrivatePreference(_ value: Any?, key: String, on preferences: WKPreferences) {
+        let capitalized = key.prefix(1).uppercased() + key.dropFirst()
+        let setter = Selector(("set\(capitalized):"))
+        let privateSetter = Selector(("_set\(capitalized):"))
+        guard preferences.responds(to: setter) || preferences.responds(to: privateSetter) else { return }
+        preferences.setValue(value, forKey: key)
     }
 
     // MARK: – WebView Configuration
@@ -147,7 +161,7 @@ final class WebViewController: NSViewController {
 
         // Enable developer extras only in debug builds.
         #if DEBUG
-        config.preferences.setValue(true, forKey: "developerExtrasEnabled")
+        Self.setPrivatePreference(true, key: "developerExtrasEnabled", on: config.preferences)
         #endif
 
         // Inject user content controller for native bridge + styling.

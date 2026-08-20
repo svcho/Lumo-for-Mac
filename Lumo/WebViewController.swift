@@ -325,8 +325,8 @@ final class WebViewController: NSViewController {
                             '[contenteditable="true"][role="textbox"]',
                             '[contenteditable="true"]',
                             'input[type="text"]',
-                            '[aria-label*="message" i]',
-                            '[aria-label*="Message" i]'
+                            '[aria-label*="message"]',
+                            '[aria-label*="Message"]'
                         ]);
                         if (input) { input.focus(); return true; }
                         return false;
@@ -419,6 +419,12 @@ final class WebViewController: NSViewController {
                 }
             })();
         """) { _, _ in }
+    }
+
+    func syncChrome() {
+        guard isViewLoaded else { return }
+        systemAppearanceChanged()
+        applyTitlebarInset()
     }
 
     @objc private func pageReady(_ notification: Notification) {

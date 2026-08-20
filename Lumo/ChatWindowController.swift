@@ -82,6 +82,7 @@ final class ChatWindowController: NSWindowController, NSWindowDelegate {
 
     func applyAppearance() {
         window?.appearance = settings.forceDarkChrome ? NSAppearance(named: .vibrantDark) : nil
+        webViewController.syncChrome()
     }
 
     // MARK: – NSWindowDelegate

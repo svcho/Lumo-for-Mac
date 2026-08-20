@@ -44,11 +44,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         )
         controller.showWindow(nil)
         if let referenceWindow = existingWindows.last?.window, let window = controller.window {
-            let origin = NSPoint(
+            let offsetOrigin = NSPoint(
                 x: referenceWindow.frame.origin.x + 22,
                 y: referenceWindow.frame.origin.y - 22
             )
-            window.setFrameOrigin(origin)
+            if let visibleFrame = NSScreen.main?.visibleFrame {
+                let maximumOrigin = NSPoint(
+                    x: visibleFrame.maxX - window.frame.width,
+                    y: visibleFrame.maxY - window.frame.height
+                )
+                window.setFrameOrigin(NSPoint(
+                    x: min(max(offsetOrigin.x, visibleFrame.minX), maximumOrigin.x),
+                    y: min(max(offsetOrigin.y, visibleFrame.minY), maximumOrigin.y)
+                ))
+            } else {
+                window.setFrameOrigin(offsetOrigin)
+            }
         }
         windows.append(controller)
         return controller

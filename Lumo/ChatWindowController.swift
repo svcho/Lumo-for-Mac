@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import WebKit
 
 /// Controls a single chat window with native macOS chrome.
@@ -7,6 +8,7 @@ final class ChatWindowController: NSWindowController, NSWindowDelegate {
     let settings: AppSettings
     let webViewController: WebViewController
     private static let frameAutosaveName = NSWindow.FrameAutosaveName("lumo.chatWindow")
+    private var appearanceCancellable: AnyCancellable?
 
     init(settings: AppSettings, urlString: String? = nil, restoresFrame: Bool = true) {
         self.settings = settings
@@ -44,7 +46,6 @@ final class ChatWindowController: NSWindowController, NSWindowDelegate {
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.toolbarStyle = .unified
-        window.appearance = NSAppearance(named: .vibrantDark)
         window.minSize = minSize
         window.isReleasedWhenClosed = false
         if restoresFrame {
@@ -60,6 +61,10 @@ final class ChatWindowController: NSWindowController, NSWindowDelegate {
         super.init(window: window)
         window.delegate = self
         window.contentViewController = webViewController
+        applyAppearance()
+        appearanceCancellable = settings.$forceDarkChrome
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.applyAppearance() }
 
         // Assigning contentViewController resizes the window to the view's
         // fitting size (collapsing it to minSize), so restore or set the
@@ -74,6 +79,10 @@ final class ChatWindowController: NSWindowController, NSWindowDelegate {
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) not used") }
+
+    func applyAppearance() {
+        window?.appearance = settings.forceDarkChrome ? NSAppearance(named: .vibrantDark) : nil
+    }
 
     // MARK: – NSWindowDelegate
 

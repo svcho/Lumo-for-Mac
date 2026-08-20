@@ -36,15 +36,22 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @discardableResult
     func openChatWindow(url: URL? = nil) -> ChatWindowController {
-        let controller = ChatWindowController(settings: settings, urlString: url?.absoluteString)
+        let existingWindows = windows
+        let controller = ChatWindowController(
+            settings: settings,
+            urlString: url?.absoluteString,
+            restoresFrame: existingWindows.isEmpty
+        )
         controller.showWindow(nil)
+        if let referenceWindow = existingWindows.last?.window, let window = controller.window {
+            let origin = NSPoint(
+                x: referenceWindow.frame.origin.x + 22,
+                y: referenceWindow.frame.origin.y - 22
+            )
+            window.setFrameOrigin(origin)
+        }
         windows.append(controller)
         return controller
-    }
-
-    func closeAllWindows() {
-        windows.forEach { $0.close() }
-        windows.removeAll()
     }
 
     // MARK: – Menu actions
@@ -94,9 +101,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func clearCookies(_ sender: Any?) {
-        guard let vc = activeWebViewController() else { return }
-        vc.clearWebsiteData {
-            vc.reload()
+        guard let webViewController = windows.first?.webViewController else { return }
+        webViewController.clearWebsiteData { [weak self] in
+            self?.windows.forEach { $0.webViewController.reload() }
         }
     }
 

@@ -124,7 +124,7 @@ final class WebViewController: NSViewController {
             self,
             selector: #selector(pageReady(_:)),
             name: LumoMessageHandler.pageReadyNotification,
-            object: nil
+            object: webView
         )
 
         settings.$zoomLevel
@@ -142,6 +142,10 @@ final class WebViewController: NSViewController {
                                           on: self.webView.configuration.preferences)
             }
             .store(in: &settingsCancellables)
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self, name: LumoMessageHandler.pageReadyNotification, object: webView)
     }
 
     // MARK: – Private Preferences
@@ -378,6 +382,7 @@ final class WebViewController: NSViewController {
     }
 
     @objc private func pageReady(_ notification: Notification) {
+        guard notification.object as AnyObject? === webView else { return }
         systemAppearanceChanged()
         applyTitlebarInset()
     }
@@ -740,7 +745,7 @@ final class LumoMessageHandler: NSObject, WKScriptMessageHandler {
         case "ready":
             NotificationCenter.default.post(
                 name: Self.pageReadyNotification,
-                object: nil,
+                object: message.webView,
                 userInfo: body
             )
         default:

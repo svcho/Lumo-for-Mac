@@ -8,7 +8,7 @@ final class ChatWindowController: NSWindowController, NSWindowDelegate {
     let webViewController: WebViewController
     private static let frameAutosaveName = NSWindow.FrameAutosaveName("lumo.chatWindow")
 
-    init(settings: AppSettings, urlString: String? = nil) {
+    init(settings: AppSettings, urlString: String? = nil, restoresFrame: Bool = true) {
         self.settings = settings
         self.webViewController = WebViewController(settings: settings, urlString: urlString)
 
@@ -47,7 +47,9 @@ final class ChatWindowController: NSWindowController, NSWindowDelegate {
         window.appearance = NSAppearance(named: .vibrantDark)
         window.minSize = minSize
         window.isReleasedWhenClosed = false
-        window.setFrameAutosaveName(Self.frameAutosaveName)
+        if restoresFrame {
+            window.setFrameAutosaveName(Self.frameAutosaveName)
+        }
 
         // Toolbar for native feel.
         let toolbar = NSToolbar(identifier: "lumo.toolbar")
@@ -62,7 +64,7 @@ final class ChatWindowController: NSWindowController, NSWindowDelegate {
         // Assigning contentViewController resizes the window to the view's
         // fitting size (collapsing it to minSize), so restore or set the
         // intended frame afterwards.
-        if !window.setFrameUsingName(Self.frameAutosaveName) {
+        if !restoresFrame || !window.setFrameUsingName(Self.frameAutosaveName) {
             window.setContentSize(windowSize)
             window.center()
         }

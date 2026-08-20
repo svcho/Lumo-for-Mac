@@ -285,8 +285,6 @@ final class WebViewController: NSViewController {
             background: rgba(128,128,128,0.6);
         }
 
-        /* Remove web context menu on long press for app-like feel. */
-        img { -webkit-user-drag: none; }
         """
 
         let cssScript = WKUserScript(
@@ -775,13 +773,26 @@ extension WebViewController: WKUIDelegate {
                  completionHandler: @escaping ([URL]?) -> Void) {
         let panel = NSOpenPanel()
         panel.canChooseFiles = true
-        panel.canChooseDirectories = false
+        panel.canChooseDirectories = parameters.allowsDirectories
         panel.allowsMultipleSelection = parameters.allowsMultipleSelection
-        if panel.runModal() == .OK {
-            completionHandler(panel.urls)
-        } else {
-            completionHandler(nil)
+
+        let complete: (NSApplication.ModalResponse) -> Void = { response in
+            completionHandler(response == .OK ? panel.urls : nil)
         }
+        if let window = webView.window ?? self.view.window {
+            panel.beginSheetModal(for: window, completionHandler: complete)
+        } else {
+            complete(panel.runModal())
+        }
+    }
+
+    func webView(_ webView: WKWebView,
+                 requestMediaCapturePermissionFor origin: WKSecurityOrigin,
+                 initiatedByFrame frame: WKFrameInfo,
+                 type: WKMediaCaptureType,
+                 decisionHandler: @escaping (WKPermissionDecision) -> Void) {
+        let isProtonLumoHost = origin.host == "proton.me" || origin.host.hasSuffix(".proton.me")
+        decisionHandler(isProtonLumoHost && type == .microphone ? .grant : .deny)
     }
 }
 

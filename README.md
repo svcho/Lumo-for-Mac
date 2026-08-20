@@ -37,6 +37,11 @@ A native-feeling macOS wrapper for [Proton's Lumo AI chat](https://lumo.proton.m
 - **Offline error page** — shows a native-looking "You appear to be offline" page
 - **`window.open()` handling** — loads popups in the main view instead of new windows
 
+### Attachments & Voice
+- **Native attachment picker** — file and directory uploads use a sheet attached to the chat window and respect the website's selection options
+- **Voice input permissions** — microphone access is granted only to `proton.me` pages; camera requests are denied
+- **Native dictation** — not currently included; use Proton Lumo's web voice-input controls when available
+
 ### Native JavaScript Bridge
 - **Focus message input** (⌘L) — programmatically focuses the chat textarea
 - **Toggle sidebar** (⌃⌘S) — clicks the sidebar button via DOM
@@ -92,6 +97,8 @@ Use `--debug` for a Debug build or `--install-dir <path>` to install elsewhere.
 | ⌘[ | Navigate Back |
 | ⌘] | Navigate Forward |
 | ⌘F | Find on Page |
+| ⌘G | Find Next |
+| ⇧⌘G | Find Previous |
 | ⌘L | Focus Message Input |
 | ⌃⌘S | Toggle Sidebar |
 | ⌘+ | Zoom In |

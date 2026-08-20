@@ -35,6 +35,8 @@
     </dict>
     <key>NSDownloadsDirectory</key>
     <string>~/Downloads</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>Lumo needs microphone access to use voice input in Proton Lumo.</string>
     <key>NSSupportsAutomaticTermination</key>
     <true/>
     <key>NSSupportsSuddenTermination</key>

@@ -60,6 +60,9 @@ enum MenuBuilder {
         editMenu.addItem(withTitle: "Select All", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
         editMenu.addItem(NSMenuItem.separator())
         editMenu.addItem(withTitle: "Find…", action: #selector(target.find(_:)), keyEquivalent: "f")
+        editMenu.addItem(withTitle: "Find Next", action: #selector(target.findNext(_:)), keyEquivalent: "g")
+        let findPrevious = editMenu.addItem(withTitle: "Find Previous", action: #selector(target.findPrevious(_:)), keyEquivalent: "g")
+        findPrevious.keyEquivalentModifierMask = [.command, .shift]
         editMenu.addItem(NSMenuItem.separator())
 
         let spellItem = editMenu.addItem(withTitle: "Spelling and Grammar", action: nil, keyEquivalent: "")
@@ -113,7 +116,7 @@ enum MenuBuilder {
         // ── Help Menu ──
         let helpMenuItem = NSMenuItem()
         let helpMenu = NSMenu(title: "Help")
-        helpMenu.addItem(withTitle: "Lumo Help", action: #selector(target.openAbout), keyEquivalent: "?")
+        helpMenu.addItem(withTitle: "Lumo Help", action: #selector(target.openHelp(_:)), keyEquivalent: "?")
         helpMenu.addItem(withTitle: "Proton Privacy Policy", action: #selector(PrivacyHelper.openPrivacyPolicy), keyEquivalent: "")
         helpMenuItem.submenu = helpMenu
         app.helpMenu = helpMenu

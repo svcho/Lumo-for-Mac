@@ -30,13 +30,16 @@ final class WebViewController: NSViewController {
     private let urlString: String?
     private(set) var webView: WKWebView!
     private var findBar: NSSearchField?
+    private var findBarContainer: NSView?
     private var findBarHeightConstraint: NSLayoutConstraint?
     private var titlebarDragHeightConstraint: NSLayoutConstraint?
     private var titleObserver: NSKeyValueObservation?
     private var urlObserver: NSKeyValueObservation?
+    private var progressObserver: NSKeyValueObservation?
     private var appearanceObserver: NSKeyValueObservation?
     private var settingsCancellables: Set<AnyCancellable> = []
     private var downloadDestinations: [ObjectIdentifier: URL] = [:]
+    private let progressIndicator = NSProgressIndicator()
 
     private static let lumoURL = URL(string: "https://lumo.proton.me/")!
 
@@ -77,6 +80,14 @@ final class WebViewController: NSViewController {
         container.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
         container.addSubview(webView)
 
+        progressIndicator.translatesAutoresizingMaskIntoConstraints = false
+        progressIndicator.style = .bar
+        progressIndicator.isIndeterminate = false
+        progressIndicator.minValue = 0
+        progressIndicator.maxValue = 1
+        progressIndicator.isHidden = true
+        container.addSubview(progressIndicator)
+
         let titlebarDragView = TitlebarDragView()
         titlebarDragView.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(titlebarDragView)
@@ -95,6 +106,10 @@ final class WebViewController: NSViewController {
             titlebarDragView.leadingAnchor.constraint(equalTo: container.leadingAnchor),
             titlebarDragView.trailingAnchor.constraint(equalTo: container.trailingAnchor),
             titlebarDragHeightConstraint,
+            progressIndicator.topAnchor.constraint(equalTo: container.topAnchor),
+            progressIndicator.leadingAnchor.constraint(equalTo: container.leadingAnchor),
+            progressIndicator.trailingAnchor.constraint(equalTo: container.trailingAnchor),
+            progressIndicator.heightAnchor.constraint(equalToConstant: 2),
         ])
 
         self.view = container
@@ -124,7 +139,7 @@ final class WebViewController: NSViewController {
             self,
             selector: #selector(pageReady(_:)),
             name: LumoMessageHandler.pageReadyNotification,
-            object: nil
+            object: webView
         )
 
         settings.$zoomLevel
@@ -142,6 +157,10 @@ final class WebViewController: NSViewController {
                                           on: self.webView.configuration.preferences)
             }
             .store(in: &settingsCancellables)
+    }
+
+    deinit {
+        NotificationCenter.default.removeObserver(self, name: LumoMessageHandler.pageReadyNotification, object: webView)
     }
 
     // MARK: – Private Preferences
@@ -266,8 +285,6 @@ final class WebViewController: NSViewController {
             background: rgba(128,128,128,0.6);
         }
 
-        /* Remove web context menu on long press for app-like feel. */
-        img { -webkit-user-drag: none; }
         """
 
         let cssScript = WKUserScript(
@@ -287,6 +304,14 @@ final class WebViewController: NSViewController {
         let bridgeScript = WKUserScript(
             source: """
             (function() {
+                function firstElement(selectors) {
+                    for (var i = 0; i < selectors.length; i++) {
+                        var element = document.querySelector(selectors[i]);
+                        if (element) { return element; }
+                    }
+                    return null;
+                }
+
                 window.LumoNative = {
                     // Called when page is ready.
                     ready: function() {
@@ -295,27 +320,39 @@ final class WebViewController: NSViewController {
 
                     // Focus the message input.
                     focusInput: function() {
-                        var input = document.querySelector('textarea, [contenteditable="true"], input[type="text"]');
-                        if (input) { input.focus(); }
+                        var input = firstElement([
+                            'textarea',
+                            '[contenteditable="true"][role="textbox"]',
+                            '[contenteditable="true"]',
+                            'input[type="text"]',
+                            '[aria-label*="message"]',
+                            '[aria-label*="Message"]'
+                        ]);
+                        if (input) { input.focus(); return true; }
+                        return false;
                     },
 
                     // Toggle sidebar if a sidebar toggle button exists.
                     toggleSidebar: function() {
-                        var btn = document.querySelector('[aria-label*="sidebar"], [aria-label*="Sidebar"], button[class*="sidebar"], button[class*="menu"]');
+                        var btn = firstElement([
+                            '[aria-label*="sidebar"]',
+                            '[aria-label*="Sidebar"]',
+                            'button[class*="sidebar"]',
+                            'button[class*="menu"]'
+                        ]);
                         if (btn) { btn.click(); return true; }
                         return false;
                     },
 
                     // Start new chat.
                     newChat: function() {
-                        var btn = document.querySelector('[aria-label*="new"], [aria-label*="New"], button[class*="new"]');
+                        var btn = firstElement([
+                            '[aria-label*="new"]',
+                            '[aria-label*="New"]',
+                            'button[class*="new"]'
+                        ]);
                         if (btn) { btn.click(); return true; }
                         return false;
-                    },
-
-                    // Detect dark/light mode.
-                    getTheme: function() {
-                        return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
                     }
                 };
 
@@ -354,14 +391,21 @@ final class WebViewController: NSViewController {
                 self?.applyZoom()
             }
         }
+
+        progressObserver = webView.observe(\.estimatedProgress, options: [.new]) { [weak self] _, change in
+            DispatchQueue.main.async {
+                guard let self, let progress = change.newValue else { return }
+                self.progressIndicator.doubleValue = progress
+                self.progressIndicator.isHidden = progress >= 1
+            }
+        }
     }
 
     // MARK: – Theme Sync
 
     @objc private func systemAppearanceChanged() {
-        // The window chrome is forced to .vibrantDark (see ChatWindowController),
-        // so view.effectiveAppearance is always dark. Read the app/system
-        // appearance so the web content follows the real Light/Dark setting.
+        // Read the app/system appearance so web content follows the user's
+        // current Light/Dark setting, independently of optional dark chrome.
         let appearance = NSApp?.effectiveAppearance ?? view.effectiveAppearance
         let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         let theme = isDark ? "dark" : "light"
@@ -377,7 +421,14 @@ final class WebViewController: NSViewController {
         """) { _, _ in }
     }
 
+    func syncChrome() {
+        guard isViewLoaded else { return }
+        systemAppearanceChanged()
+        applyTitlebarInset()
+    }
+
     @objc private func pageReady(_ notification: Notification) {
+        guard notification.object as AnyObject? === webView else { return }
         systemAppearanceChanged()
         applyTitlebarInset()
     }
@@ -488,17 +539,56 @@ final class WebViewController: NSViewController {
         }
 
         self.findBar = searchField
+        self.findBarContainer = bar
         view.window?.makeFirstResponder(searchField)
     }
 
     @objc private func findTextChanged(_ sender: NSSearchField) {
         let query = sender.stringValue
-        guard !query.isEmpty else { return }
-        // Use WebKit's built-in find. Pass the query as a JSON-encoded
-        // string to safely handle quotes, backslashes, and special characters.
-        guard let encodedData = try? JSONEncoder().encode(query),
-              let encodedQuery = String(data: encodedData, encoding: .utf8) else { return }
-        webView.evaluateJavaScript("window.find(\(encodedQuery))", completionHandler: nil)
+        find(query, backwards: false)
+    }
+
+    func findNext() {
+        guard let query = findBar?.stringValue, !query.isEmpty else {
+            showFindBar()
+            return
+        }
+        find(query, backwards: false)
+    }
+
+    func findPrevious() {
+        guard let query = findBar?.stringValue, !query.isEmpty else {
+            showFindBar()
+            return
+        }
+        find(query, backwards: true)
+    }
+
+    private func find(_ query: String, backwards: Bool) {
+        let configuration = WKFindConfiguration()
+        configuration.backwards = backwards
+        configuration.wraps = true
+        configuration.caseSensitive = false
+
+        webView.find(query, configuration: configuration) { result in
+            if !query.isEmpty, !result.matchFound {
+                NSSound.beep()
+            }
+        }
+    }
+
+    private func dismissFindBar() {
+        guard let bar = findBarContainer else { return }
+        find("", backwards: false)
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = 0.2
+            self.findBarHeightConstraint?.animator().constant = 0
+        }) {
+            bar.removeFromSuperview()
+            self.findBar = nil
+            self.findBarContainer = nil
+            self.findBarHeightConstraint = nil
+        }
     }
 
     func toggleSidebar() {
@@ -534,16 +624,15 @@ final class WebViewController: NSViewController {
 
 extension WebViewController: NSSearchFieldDelegate {
     func searchFieldDidEndSearching(_ sender: NSSearchField) {
-        // Remove find bar.
-        if let bar = sender.superview {
-            NSAnimationContext.runAnimationGroup({ ctx in
-                ctx.duration = 0.2
-                self.findBarHeightConstraint?.animator().constant = 0
-            }) {
-                bar.removeFromSuperview()
-                self.findBar = nil
-            }
+        dismissFindBar()
+    }
+
+    func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+        if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
+            dismissFindBar()
+            return true
         }
+        return false
     }
 }
 
@@ -572,11 +661,12 @@ extension WebViewController: WKNavigationDelegate {
     }
 
     func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
-        // Could show a loading indicator.
-        view.window?.title = "Loading…"
+        progressIndicator.doubleValue = 0
+        progressIndicator.isHidden = false
     }
 
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+        progressIndicator.isHidden = true
         applyZoom()
         systemAppearanceChanged()
         applyTitlebarInset()
@@ -602,6 +692,7 @@ extension WebViewController: WKNavigationDelegate {
         if nsError.code == NSURLErrorCancelled { return }
         if nsError.domain == "WebKitErrorDomain" && nsError.code == 102 { return }
 
+        progressIndicator.isHidden = true
         view.window?.title = "Lumo"
         let message: String
         if let urlError = error as? URLError, urlError.code == .notConnectedToInternet {
@@ -609,7 +700,7 @@ extension WebViewController: WKNavigationDelegate {
         } else {
             message = "The page could not be loaded. \(nsError.localizedDescription)"
         }
-        showOfflinePage(message: message)
+        showOfflinePage(message: message, retryURL: webView.url)
     }
 
     // MARK: – Authentication Challenge
@@ -628,31 +719,44 @@ extension WebViewController: WKNavigationDelegate {
 
     // MARK: – Offline Page
 
-    private func showOfflinePage(message: String) {
-        let escaped = message
-            .replacingOccurrences(of: "&", with: "&amp;")
-            .replacingOccurrences(of: "<", with: "&lt;")
-            .replacingOccurrences(of: ">", with: "&gt;")
+    private func showOfflinePage(message: String, retryURL: URL?) {
+        let retryURL = retryURL?.scheme == "about" ? Self.lumoURL : (retryURL ?? Self.lumoURL)
+        let escapedMessage = Self.escapeHTML(message)
+        let encodedRetryURL = (try? JSONEncoder().encode(retryURL.absoluteString))
+            .flatMap { String(data: $0, encoding: .utf8) } ?? "\"\(Self.lumoURL.absoluteString)\""
+        let escapedRetryURL = Self.escapeHTML(encodedRetryURL)
         let html = """
         <!DOCTYPE html>
         <html>
         <head><meta charset="utf-8"><style>
             body { font-family: -apple-system, system-ui, sans-serif; display:flex; align-items:center;
-                   justify-content:center; height:100vh; margin:0; background:transparent; color: #e0e0e0; }
+                   justify-content:center; height:100vh; margin:0; background:#fff; color:#202124; }
             .card { text-align:center; max-width:400px; padding:40px; }
             h1 { font-size:48px; margin-bottom:8px; opacity:0.3; }
             p { font-size:16px; opacity:0.6; line-height:1.5; }
             button { margin-top:20px; padding:10px 24px; font-size:14px; border:none;
                      border-radius:8px; background:#6366f1; color:white; cursor:pointer; }
+            @media (prefers-color-scheme: dark) {
+                body { background:#1e1e1e; color:#e0e0e0; }
+            }
         </style></head>
         <body><div class="card">
             <h1>🔌</h1>
-            <p>\(escaped)</p>
-            <button onclick="location.href='\(Self.lumoURL.absoluteString)'">Retry</button>
+            <p>\(escapedMessage)</p>
+            <button onclick="location.href=\(escapedRetryURL)">Retry</button>
         </div></body>
         </html>
         """
         webView.loadHTMLString(html, baseURL: nil)
+    }
+
+    private static func escapeHTML(_ string: String) -> String {
+        string
+            .replacingOccurrences(of: "&", with: "&amp;")
+            .replacingOccurrences(of: "<", with: "&lt;")
+            .replacingOccurrences(of: ">", with: "&gt;")
+            .replacingOccurrences(of: "\"", with: "&quot;")
+            .replacingOccurrences(of: "'", with: "&#39;")
     }
 }
 
@@ -675,13 +779,26 @@ extension WebViewController: WKUIDelegate {
                  completionHandler: @escaping ([URL]?) -> Void) {
         let panel = NSOpenPanel()
         panel.canChooseFiles = true
-        panel.canChooseDirectories = false
+        panel.canChooseDirectories = parameters.allowsDirectories
         panel.allowsMultipleSelection = parameters.allowsMultipleSelection
-        if panel.runModal() == .OK {
-            completionHandler(panel.urls)
-        } else {
-            completionHandler(nil)
+
+        let complete: (NSApplication.ModalResponse) -> Void = { response in
+            completionHandler(response == .OK ? panel.urls : nil)
         }
+        if let window = webView.window ?? self.view.window {
+            panel.beginSheetModal(for: window, completionHandler: complete)
+        } else {
+            complete(panel.runModal())
+        }
+    }
+
+    func webView(_ webView: WKWebView,
+                 requestMediaCapturePermissionFor origin: WKSecurityOrigin,
+                 initiatedByFrame frame: WKFrameInfo,
+                 type: WKMediaCaptureType,
+                 decisionHandler: @escaping (WKPermissionDecision) -> Void) {
+        let isProtonLumoHost = origin.host == "proton.me" || origin.host.hasSuffix(".proton.me")
+        decisionHandler(isProtonLumoHost && type == .microphone ? .grant : .deny)
     }
 }
 
@@ -740,7 +857,7 @@ final class LumoMessageHandler: NSObject, WKScriptMessageHandler {
         case "ready":
             NotificationCenter.default.post(
                 name: Self.pageReadyNotification,
-                object: nil,
+                object: message.webView,
                 userInfo: body
             )
         default:

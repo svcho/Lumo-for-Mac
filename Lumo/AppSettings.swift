@@ -15,6 +15,9 @@ final class AppSettings: ObservableObject {
     @Published var customUserAgent: Bool {
         didSet { UserDefaults.standard.set(customUserAgent, forKey: "customUserAgent") }
     }
+    @Published var forceDarkChrome: Bool {
+        didSet { UserDefaults.standard.set(forceDarkChrome, forKey: "forceDarkChrome") }
+    }
 
     init() {
         let defaults = UserDefaults.standard
@@ -22,5 +25,6 @@ final class AppSettings: ObservableObject {
         self.enableSpellChecking = defaults.object(forKey: "enableSpellChecking") as? Bool ?? true
         self.blockTrackers = defaults.object(forKey: "blockTrackers") as? Bool ?? true
         self.customUserAgent = defaults.object(forKey: "customUserAgent") as? Bool ?? true
+        self.forceDarkChrome = defaults.object(forKey: "forceDarkChrome") as? Bool ?? false
     }
 }

@@ -36,15 +36,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @discardableResult
     func openChatWindow(url: URL? = nil) -> ChatWindowController {
-        let controller = ChatWindowController(settings: settings, urlString: url?.absoluteString)
+        let existingWindows = windows
+        let controller = ChatWindowController(
+            settings: settings,
+            urlString: url?.absoluteString,
+            restoresFrame: existingWindows.isEmpty
+        )
         controller.showWindow(nil)
+        if let referenceWindow = existingWindows.last?.window, let window = controller.window {
+            let offsetOrigin = NSPoint(
+                x: referenceWindow.frame.origin.x + 22,
+                y: referenceWindow.frame.origin.y - 22
+            )
+            if let visibleFrame = NSScreen.main?.visibleFrame {
+                let maximumOrigin = NSPoint(
+                    x: visibleFrame.maxX - window.frame.width,
+                    y: visibleFrame.maxY - window.frame.height
+                )
+                window.setFrameOrigin(NSPoint(
+                    x: min(max(offsetOrigin.x, visibleFrame.minX), maximumOrigin.x),
+                    y: min(max(offsetOrigin.y, visibleFrame.minY), maximumOrigin.y)
+                ))
+            } else {
+                window.setFrameOrigin(offsetOrigin)
+            }
+        }
         windows.append(controller)
         return controller
-    }
-
-    func closeAllWindows() {
-        windows.forEach { $0.close() }
-        windows.removeAll()
     }
 
     // MARK: – Menu actions
@@ -81,6 +99,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         activeWebViewController()?.showFindBar()
     }
 
+    @objc func findNext(_ sender: Any?) {
+        activeWebViewController()?.findNext()
+    }
+
+    @objc func findPrevious(_ sender: Any?) {
+        activeWebViewController()?.findPrevious()
+    }
+
     @objc func toggleSidebar(_ sender: Any?) {
         activeWebViewController()?.toggleSidebar()
     }
@@ -94,9 +120,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func clearCookies(_ sender: Any?) {
-        guard let vc = activeWebViewController() else { return }
-        vc.clearWebsiteData {
-            vc.reload()
+        guard let webViewController = windows.first?.webViewController else { return }
+        webViewController.clearWebsiteData { [weak self] in
+            self?.windows.forEach { $0.webViewController.reload() }
         }
     }
 
@@ -135,12 +161,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func openAbout() {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unknown"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "Unknown"
         let alert = NSAlert()
         alert.messageText = "Lumo"
-        alert.informativeText = "A native macOS client for Proton Lumo AI.\n\nWraps lumo.proton.me with native window chrome, persistent sessions, and performance optimizations.\n\nNot affiliated with Proton AG."
+        alert.informativeText = "Version \(version) (\(build))\n\nA native macOS client for Proton Lumo AI.\n\nWraps lumo.proton.me with native window chrome, persistent sessions, and performance optimizations.\n\nNot affiliated with Proton AG."
         alert.alertStyle = .informational
         alert.addButton(withTitle: "OK")
         alert.runModal()
+    }
+
+    @objc func openHelp(_ sender: Any?) {
+        NSWorkspace.shared.open(URL(string: "https://github.com/svcho/Lumo-for-Mac")!)
     }
 
     // MARK: – Helpers

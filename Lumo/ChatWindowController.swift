@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import WebKit
 
 /// Controls a single chat window with native macOS chrome.
@@ -6,20 +7,22 @@ final class ChatWindowController: NSWindowController, NSWindowDelegate {
 
     let settings: AppSettings
     let webViewController: WebViewController
-    private static let frameAutosaveName = NSWindow.FrameAutosaveName("lumo.chatWindow")
+    // v2 invalidates the previous letterbox default (1400×500) once.
+    private static let frameAutosaveName = NSWindow.FrameAutosaveName("lumo.chatWindow.v2")
+    private var appearanceCancellable: AnyCancellable?
 
-    init(settings: AppSettings, urlString: String? = nil) {
+    init(settings: AppSettings, urlString: String? = nil, restoresFrame: Bool = true) {
         self.settings = settings
         self.webViewController = WebViewController(settings: settings, urlString: urlString)
 
-        // Wide, compact default; restored from AppKit frame autosave after the
-        // user moves or resizes the window.
+        // Standard Mac document-ish default (~3:2); restored from AppKit frame
+        // autosave after the user moves or resizes the window.
         let visible = NSScreen.main?.visibleFrame.size ?? NSSize(width: 1440, height: 900)
         let windowSize = NSSize(
-            width: min(1400, visible.width - 24),
-            height: min(500, visible.height - 24)
+            width: min(1120, visible.width - 80),
+            height: min(760, visible.height - 80)
         )
-        let minSize = NSSize(width: 800, height: 500)
+        let minSize = NSSize(width: 800, height: 560)
 
         let styleMask: NSWindow.StyleMask = [
             .titled,
@@ -44,10 +47,11 @@ final class ChatWindowController: NSWindowController, NSWindowDelegate {
         window.titleVisibility = .hidden
         window.titlebarAppearsTransparent = true
         window.toolbarStyle = .unified
-        window.appearance = NSAppearance(named: .vibrantDark)
         window.minSize = minSize
         window.isReleasedWhenClosed = false
-        window.setFrameAutosaveName(Self.frameAutosaveName)
+        if restoresFrame {
+            window.setFrameAutosaveName(Self.frameAutosaveName)
+        }
 
         // Toolbar for native feel.
         let toolbar = NSToolbar(identifier: "lumo.toolbar")
@@ -58,11 +62,15 @@ final class ChatWindowController: NSWindowController, NSWindowDelegate {
         super.init(window: window)
         window.delegate = self
         window.contentViewController = webViewController
+        applyAppearance()
+        appearanceCancellable = settings.$forceDarkChrome
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.applyAppearance() }
 
         // Assigning contentViewController resizes the window to the view's
         // fitting size (collapsing it to minSize), so restore or set the
         // intended frame afterwards.
-        if !window.setFrameUsingName(Self.frameAutosaveName) {
+        if !restoresFrame || !window.setFrameUsingName(Self.frameAutosaveName) {
             window.setContentSize(windowSize)
             window.center()
         }
@@ -72,6 +80,11 @@ final class ChatWindowController: NSWindowController, NSWindowDelegate {
     }
 
     required init?(coder: NSCoder) { fatalError("init(coder:) not used") }
+
+    func applyAppearance() {
+        window?.appearance = settings.forceDarkChrome ? NSAppearance(named: .vibrantDark) : nil
+        webViewController.syncChrome()
+    }
 
     // MARK: – NSWindowDelegate
 

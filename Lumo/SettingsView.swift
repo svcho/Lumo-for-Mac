@@ -15,6 +15,10 @@ struct SettingsView: View {
                 Text("Applies to new windows.")
                     .font(.caption)
                     .foregroundColor(.secondary)
+                Toggle("Force dark window chrome", isOn: $settings.forceDarkChrome)
+                Text("When off, titlebar and toolbars follow System Settings.")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
             }
 
             Divider()

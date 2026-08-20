@@ -150,12 +150,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     }
 
     @objc func openAbout() {
+        let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "Unknown"
+        let build = Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "Unknown"
         let alert = NSAlert()
         alert.messageText = "Lumo"
-        alert.informativeText = "A native macOS client for Proton Lumo AI.\n\nWraps lumo.proton.me with native window chrome, persistent sessions, and performance optimizations.\n\nNot affiliated with Proton AG."
+        alert.informativeText = "Version \(version) (\(build))\n\nA native macOS client for Proton Lumo AI.\n\nWraps lumo.proton.me with native window chrome, persistent sessions, and performance optimizations.\n\nNot affiliated with Proton AG."
         alert.alertStyle = .informational
         alert.addButton(withTitle: "OK")
         alert.runModal()
+    }
+
+    @objc func openHelp(_ sender: Any?) {
+        NSWorkspace.shared.open(URL(string: "https://github.com/svcho/Lumo-for-Mac")!)
     }
 
     // MARK: – Helpers

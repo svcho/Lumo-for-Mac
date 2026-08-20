@@ -306,6 +306,14 @@ final class WebViewController: NSViewController {
         let bridgeScript = WKUserScript(
             source: """
             (function() {
+                function firstElement(selectors) {
+                    for (var i = 0; i < selectors.length; i++) {
+                        var element = document.querySelector(selectors[i]);
+                        if (element) { return element; }
+                    }
+                    return null;
+                }
+
                 window.LumoNative = {
                     // Called when page is ready.
                     ready: function() {
@@ -314,27 +322,39 @@ final class WebViewController: NSViewController {
 
                     // Focus the message input.
                     focusInput: function() {
-                        var input = document.querySelector('textarea, [contenteditable="true"], input[type="text"]');
-                        if (input) { input.focus(); }
+                        var input = firstElement([
+                            'textarea',
+                            '[contenteditable="true"][role="textbox"]',
+                            '[contenteditable="true"]',
+                            'input[type="text"]',
+                            '[aria-label*="message" i]',
+                            '[aria-label*="Message" i]'
+                        ]);
+                        if (input) { input.focus(); return true; }
+                        return false;
                     },
 
                     // Toggle sidebar if a sidebar toggle button exists.
                     toggleSidebar: function() {
-                        var btn = document.querySelector('[aria-label*="sidebar"], [aria-label*="Sidebar"], button[class*="sidebar"], button[class*="menu"]');
+                        var btn = firstElement([
+                            '[aria-label*="sidebar"]',
+                            '[aria-label*="Sidebar"]',
+                            'button[class*="sidebar"]',
+                            'button[class*="menu"]'
+                        ]);
                         if (btn) { btn.click(); return true; }
                         return false;
                     },
 
                     // Start new chat.
                     newChat: function() {
-                        var btn = document.querySelector('[aria-label*="new"], [aria-label*="New"], button[class*="new"]');
+                        var btn = firstElement([
+                            '[aria-label*="new"]',
+                            '[aria-label*="New"]',
+                            'button[class*="new"]'
+                        ]);
                         if (btn) { btn.click(); return true; }
                         return false;
-                    },
-
-                    // Detect dark/light mode.
-                    getTheme: function() {
-                        return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
                     }
                 };
 

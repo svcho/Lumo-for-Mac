@@ -116,7 +116,7 @@ enum MenuBuilder {
         // ── Help Menu ──
         let helpMenuItem = NSMenuItem()
         let helpMenu = NSMenu(title: "Help")
-        helpMenu.addItem(withTitle: "Lumo Help", action: #selector(target.openAbout), keyEquivalent: "?")
+        helpMenu.addItem(withTitle: "Lumo Help", action: #selector(target.openHelp(_:)), keyEquivalent: "?")
         helpMenu.addItem(withTitle: "Proton Privacy Policy", action: #selector(PrivacyHelper.openPrivacyPolicy), keyEquivalent: "")
         helpMenuItem.submenu = helpMenu
         app.helpMenu = helpMenu

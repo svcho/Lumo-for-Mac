@@ -88,6 +88,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         activeWebViewController()?.showFindBar()
     }
 
+    @objc func findNext(_ sender: Any?) {
+        activeWebViewController()?.findNext()
+    }
+
+    @objc func findPrevious(_ sender: Any?) {
+        activeWebViewController()?.findPrevious()
+    }
+
     @objc func toggleSidebar(_ sender: Any?) {
         activeWebViewController()?.toggleSidebar()
     }

@@ -30,6 +30,7 @@ final class WebViewController: NSViewController {
     private let urlString: String?
     private(set) var webView: WKWebView!
     private var findBar: NSSearchField?
+    private var findBarContainer: NSView?
     private var findBarHeightConstraint: NSLayoutConstraint?
     private var titlebarDragHeightConstraint: NSLayoutConstraint?
     private var titleObserver: NSKeyValueObservation?
@@ -514,17 +515,56 @@ final class WebViewController: NSViewController {
         }
 
         self.findBar = searchField
+        self.findBarContainer = bar
         view.window?.makeFirstResponder(searchField)
     }
 
     @objc private func findTextChanged(_ sender: NSSearchField) {
         let query = sender.stringValue
-        guard !query.isEmpty else { return }
-        // Use WebKit's built-in find. Pass the query as a JSON-encoded
-        // string to safely handle quotes, backslashes, and special characters.
-        guard let encodedData = try? JSONEncoder().encode(query),
-              let encodedQuery = String(data: encodedData, encoding: .utf8) else { return }
-        webView.evaluateJavaScript("window.find(\(encodedQuery))", completionHandler: nil)
+        find(query, backwards: false)
+    }
+
+    func findNext() {
+        guard let query = findBar?.stringValue, !query.isEmpty else {
+            showFindBar()
+            return
+        }
+        find(query, backwards: false)
+    }
+
+    func findPrevious() {
+        guard let query = findBar?.stringValue, !query.isEmpty else {
+            showFindBar()
+            return
+        }
+        find(query, backwards: true)
+    }
+
+    private func find(_ query: String, backwards: Bool) {
+        let configuration = WKFindConfiguration()
+        configuration.backwards = backwards
+        configuration.wraps = true
+        configuration.caseSensitive = false
+
+        webView.find(query, configuration: configuration) { result in
+            if !query.isEmpty, !result.matchFound {
+                NSSound.beep()
+            }
+        }
+    }
+
+    private func dismissFindBar() {
+        guard let bar = findBarContainer else { return }
+        find("", backwards: false)
+        NSAnimationContext.runAnimationGroup({ ctx in
+            ctx.duration = 0.2
+            self.findBarHeightConstraint?.animator().constant = 0
+        }) {
+            bar.removeFromSuperview()
+            self.findBar = nil
+            self.findBarContainer = nil
+            self.findBarHeightConstraint = nil
+        }
     }
 
     func toggleSidebar() {
@@ -560,16 +600,15 @@ final class WebViewController: NSViewController {
 
 extension WebViewController: NSSearchFieldDelegate {
     func searchFieldDidEndSearching(_ sender: NSSearchField) {
-        // Remove find bar.
-        if let bar = sender.superview {
-            NSAnimationContext.runAnimationGroup({ ctx in
-                ctx.duration = 0.2
-                self.findBarHeightConstraint?.animator().constant = 0
-            }) {
-                bar.removeFromSuperview()
-                self.findBar = nil
-            }
+        dismissFindBar()
+    }
+
+    func control(_ control: NSControl, textView: NSTextView, doCommandBy commandSelector: Selector) -> Bool {
+        if commandSelector == #selector(NSResponder.cancelOperation(_:)) {
+            dismissFindBar()
+            return true
         }
+        return false
     }
 }
 

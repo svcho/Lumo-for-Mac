@@ -92,6 +92,8 @@ Use `--debug` for a Debug build or `--install-dir <path>` to install elsewhere.
 | ⌘[ | Navigate Back |
 | ⌘] | Navigate Forward |
 | ⌘F | Find on Page |
+| ⌘G | Find Next |
+| ⇧⌘G | Find Previous |
 | ⌘L | Focus Message Input |
 | ⌃⌘S | Toggle Sidebar |
 | ⌘+ | Zoom In |
